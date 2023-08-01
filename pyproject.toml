@@ -1,2 +1,202 @@
 [build-system]
-requires = ["setuptools>=40.5.0", "wheel"]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kas"
+dynamic = ["version"]
+description = "Setup tool for bitbake based projects"
+readme = "README.rst"
+license = "MIT"
+requires-python = ">=3.6"
+maintainers = [
+    { name = "Jan Kiszka", email = "jan.kiszka@siemens.com" },
+]
+keywords = [
+    "OpenEmbedded",
+    "bitbake",
+    "development",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+    "distro >=1.0.0",
+    "jsonschema >=2.5.0",
+    "kconfiglib >=14.1.0",
+    "PyYAML >=3.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/siemens/kas"
+"Changelog" = "https://github.com/siemens/kas/blob/master/CHANGELOG.md"
+"Documentation" = "https://kas.readthedocs.io"
+"Issues" = "https://github.com/siemens/kas/issues"
+"Mailing list" = "https://groups.google.com/forum/#!forum/kas-devel/join"
+"Source" = "https://github.com/siemens/kas"
+
+[project.optional-dependencies]
+coloring = ["colorlog >=6.0"]
+
+[project.scripts]
+kas = "kas.kas:main"
+
+[tool.hatch.version]
+path = "src/kas/__version__.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/.github"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kas"]
+
+[tool.hatch.envs.default.scripts]
+all = [
+    "hatch run types:check",
+    "hatch run lint:check",
+    "hatch run test:test",
+    "hatch build",
+    "hatch run docs:build",
+]
+
+[tool.hatch.envs.docs]
+dependencies = [
+    "sphinx >=1.2.0",
+    "CommonMark >=0.5.6",
+    "sphinx-argparse >=0.2.1",
+    "sphinx-rtd-theme >=1.2.0",
+    "doc8 >=0.9.2",
+]
+[tool.hatch.envs.docs.scripts]
+check = "doc8 {args:docs --ignore-path docs/_build}"
+build = "make -C docs html SPHINXOPTS='-W'"
+serve = "cd docs/_build/html && python -m http.server"
+
+[tool.hatch.envs.types]
+features = ["coloring"]
+dependencies = [
+    "mypy >=1.0.0",
+    "pytest",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/kas tests}"
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+    "black>=23.1.0",
+    "ruff>=0.0.243",
+    "shellcheck-py>=0.9.0",
+]
+[tool.hatch.envs.lint.scripts]
+check = [
+    "ruff {args:.}",
+    "black --check --diff {args:.}",
+    "shellcheck {args:kas-container container-entrypoint scripts/*}",
+]
+fix = [
+    "black {args:.}",
+    "ruff --fix {args:.}",
+]
+all = [
+    "fix",
+    "check",
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "coverage[toml] >=6.5",
+    "pytest",
+]
+[[tool.hatch.envs.test.matrix]]
+python = ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11"]
+[tool.hatch.envs.test.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+    "- coverage combine",
+    "coverage report",
+]
+cov = [
+    "test-cov",
+    "cov-report",
+]
+
+[tool.doc8]
+ignore-path = [
+    "**/_build",
+]
+
+[tool.mypy]
+python_version = "3.7"
+warn_return_any = true
+warn_unused_configs = true
+[[tool.mypy.overrides]]
+module = [
+    "kconfiglib",
+    "snack",
+]
+ignore_missing_imports = true
+
+[tool.black]
+target-version = ["py37"]
+line-length = 120
+skip-string-normalization = true
+
+[tool.ruff]
+target-version = "py37"
+line-length = 120
+select = [
+    "B",
+    "E",
+    "F",
+    "I",
+    "RUF",
+    "TID",
+    "W",
+]
+ignore = [
+]
+unfixable = [
+    # Don't touch unused imports
+    "F401",
+]
+
+[tool.ruff.isort]
+known-first-party = ["src"]
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.ruff.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**/*" = ["PLR2004", "S101", "TID252"]
+
+[tool.coverage.run]
+source_pkgs = ["kas", "tests"]
+branch = true
+parallel = true
+omit = [
+    "src/kas/__version__.py",
+]
+
+[tool.coverage.paths]
+test_pkg = ["src/kas", "*/kas/src/kas"]
+tests = ["tests", "*/kas/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
