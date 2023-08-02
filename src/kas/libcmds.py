@@ -7,14 +7,22 @@
     This module contains common commands used by kas plugins.
 """
 
-import tempfile
 import logging
-import shutil
 import os
 import pprint
-from .libkas import (ssh_cleanup_agent, ssh_setup_agent, ssh_no_host_key_check,
-                     get_build_environ, repos_fetch, repos_apply_patches)
+import shutil
+import tempfile
+from typing import ClassVar
+
 from .includehandler import IncludeException
+from .libkas import (
+    get_build_environ,
+    repos_apply_patches,
+    repos_fetch,
+    ssh_cleanup_agent,
+    ssh_no_host_key_check,
+    ssh_setup_agent,
+)
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
@@ -22,8 +30,9 @@ __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
 
 class Macro:
     """
-        Contains commands and provides method to run them.
+    Contains commands and provides method to run them.
     """
+
     def __init__(self, use_common_setup=True, use_common_cleanup=True):
         if use_common_setup:
             repo_loop = Loop('repo_setup_loop')
@@ -33,8 +42,7 @@ class Macro:
                 SetupDir(),
             ]
 
-            if ('SSH_PRIVATE_KEY' in os.environ
-                    or 'SSH_PRIVATE_KEY_FILE' in os.environ):
+            if 'SSH_PRIVATE_KEY' in os.environ or 'SSH_PRIVATE_KEY_FILE' in os.environ:
                 self.setup_commands.append(SetupSSHAgent())
 
             self.setup_commands += [
@@ -49,9 +57,7 @@ class Macro:
         else:
             self.setup_commands = []
 
-        if (use_common_cleanup
-                and ('SSH_PRIVATE_KEY' in os.environ
-                     or 'SSH_PRIVATE_KEY_FILE' in os.environ)):
+        if use_common_cleanup and ('SSH_PRIVATE_KEY' in os.environ or 'SSH_PRIVATE_KEY_FILE' in os.environ):
             self.cleanup_commands = [
                 CleanupSSHAgent(),
             ]
@@ -62,18 +68,17 @@ class Macro:
 
     def add(self, command):
         """
-            Appends commands to the command list.
+        Appends commands to the command list.
         """
         self.commands.append(command)
 
     def run(self, ctx, skip=None):
         """
-            Runs a command from the command list with respect to the
-            configuration.
+        Runs a command from the command list with respect to the
+        configuration.
         """
         skip = skip or []
-        joined_commands = self.setup_commands + \
-            self.commands + self.cleanup_commands
+        joined_commands = self.setup_commands + self.commands + self.cleanup_commands
         for command in joined_commands:
             command_name = str(command)
             if command_name in skip:
@@ -84,20 +89,21 @@ class Macro:
 
 class Command:
     """
-        An abstract class that defines the interface of a command.
+    An abstract class that defines the interface of a command.
     """
 
     def execute(self, ctx):
         """
-            This method executes the command.
+        This method executes the command.
         """
         pass
 
 
 class Loop(Command):
     """
-        A class that defines a set of commands as a loop.
+    A class that defines a set of commands as a loop.
     """
+
     def __init__(self, name):
         self.commands = []
         self.name = name
@@ -107,13 +113,13 @@ class Loop(Command):
 
     def add(self, command):
         """
-            Appends a command to the loop.
+        Appends a command to the loop.
         """
         self.commands.append(command)
 
     def execute(self, ctx):
         """
-            Executes the loop.
+        Executes the loop.
         """
         loop_name = str(self)
 
@@ -128,12 +134,12 @@ class Loop(Command):
 
 class SetupHome(Command):
     """
-        Sets up the home directory of kas.
+    Sets up the home directory of kas.
     """
 
     # A list of environment variables that SETUP_HOME uses
     # This should be kept up to date with any code in execute()
-    ENV_VARS = [
+    ENV_VARS: ClassVar[list[str]] = [
         'GIT_CREDENTIAL_HELPER',
         'GIT_CREDENTIAL_USEHTTPPATH',
         'AWS_CONFIG_FILE',
@@ -153,44 +159,34 @@ class SetupHome(Command):
 
     def execute(self, ctx):
         if os.environ.get('NETRC_FILE', False):
-            shutil.copy(os.environ['NETRC_FILE'],
-                        self.tmpdirname + "/.netrc")
-        if os.environ.get('CI_SERVER_HOST', False) \
-                and os.environ.get('CI_JOB_TOKEN', False):
+            shutil.copy(os.environ['NETRC_FILE'], self.tmpdirname + "/.netrc")
+        if os.environ.get('CI_SERVER_HOST', False) and os.environ.get('CI_JOB_TOKEN', False):
             with open(self.tmpdirname + '/.netrc', 'a') as fds:
                 fds.write('\n# appended by kas, you have gitlab CI env\n')
-                fds.write('machine ' + os.environ['CI_SERVER_HOST'] + '\n'
-                          'login gitlab-ci-token\n'
-                          'password ' + os.environ['CI_JOB_TOKEN'] + '\n')
+                fds.write(
+                    'machine ' + os.environ['CI_SERVER_HOST'] + '\n'
+                    'login gitlab-ci-token\n'
+                    'password ' + os.environ['CI_JOB_TOKEN'] + '\n'
+                )
         with open(self.tmpdirname + '/.gitconfig', 'w') as fds:
-            fds.write('[User]\n'
-                      '\temail = kas@example.com\n'
-                      '\tname = Kas User\n')
+            fds.write('[User]\n' '\temail = kas@example.com\n' '\tname = Kas User\n')
             if os.environ.get('GIT_CREDENTIAL_HELPER', False):
-                fds.write('[credential]\n'
-                          '\thelper = '
-                          + os.environ.get('GIT_CREDENTIAL_HELPER')
-                          + '\n')
+                fds.write('[credential]\n' '\thelper = ' + os.environ.get('GIT_CREDENTIAL_HELPER') + '\n')
                 if os.environ.get('GIT_CREDENTIAL_USEHTTPPATH', False):
-                    fds.write('\tuseHttpPath = '
-                              + os.environ.get('GIT_CREDENTIAL_USEHTTPPATH')
-                              + '\n')
+                    fds.write('\tuseHttpPath = ' + os.environ.get('GIT_CREDENTIAL_USEHTTPPATH') + '\n')
 
-        if os.environ.get('AWS_CONFIG_FILE', False) \
-                and os.environ.get('AWS_SHARED_CREDENTIALS_FILE', False):
+        if os.environ.get('AWS_CONFIG_FILE', False) and os.environ.get('AWS_SHARED_CREDENTIALS_FILE', False):
             os.makedirs(self.tmpdirname + "/.aws")
 
-            shutil.copy(os.environ['AWS_CONFIG_FILE'],
-                        self.tmpdirname + "/.aws/config")
-            shutil.copy(os.environ['AWS_SHARED_CREDENTIALS_FILE'],
-                        self.tmpdirname + "/.aws/credentials")
+            shutil.copy(os.environ['AWS_CONFIG_FILE'], self.tmpdirname + "/.aws/config")
+            shutil.copy(os.environ['AWS_SHARED_CREDENTIALS_FILE'], self.tmpdirname + "/.aws/credentials")
 
         ctx.environ['HOME'] = self.tmpdirname
 
 
 class SetupDir(Command):
     """
-        Creates the build directory.
+    Creates the build directory.
     """
 
     def __str__(self):
@@ -204,7 +200,7 @@ class SetupDir(Command):
 
 class SetupSSHAgent(Command):
     """
-        Sets up the ssh agent configuration.
+    Sets up the ssh agent configuration.
     """
 
     def __str__(self):
@@ -217,7 +213,7 @@ class SetupSSHAgent(Command):
 
 class CleanupSSHAgent(Command):
     """
-        Removes all the identities and stops the ssh-agent instance.
+    Removes all the identities and stops the ssh-agent instance.
     """
 
     def __str__(self):
@@ -229,7 +225,7 @@ class CleanupSSHAgent(Command):
 
 class SetupEnviron(Command):
     """
-        Sets up the kas environment.
+    Sets up the kas environment.
     """
 
     def __str__(self):
@@ -241,7 +237,7 @@ class SetupEnviron(Command):
 
 class WriteBBConfig(Command):
     """
-        Writes bitbake configuration files into the build directory.
+    Writes bitbake configuration files into the build directory.
     """
 
     def __str__(self):
@@ -250,10 +246,10 @@ class WriteBBConfig(Command):
     def execute(self, ctx):
         def _get_layer_path_under_topdir(ctx, layer):
             """
-                Returns a path relative to ${TOPDIR}.
-                TOPDIR is a BB variable pointing to the build directory.
-                It is not expanded by KAS, hence we avoid
-                absolute paths pointing into the build host.
+            Returns a path relative to ${TOPDIR}.
+            TOPDIR is a BB variable pointing to the build directory.
+            It is not expanded by KAS, hence we avoid
+            absolute paths pointing into the build host.
             """
             relpath = os.path.relpath(layer, ctx.build_dir)
             return '${TOPDIR}/' + relpath
@@ -265,10 +261,15 @@ class WriteBBConfig(Command):
             with open(filename, 'w') as fds:
                 fds.write(ctx.config.get_bblayers_conf_header())
                 fds.write('BBLAYERS ?= " \\\n    ')
-                fds.write(' \\\n    '.join(
-                    sorted(_get_layer_path_under_topdir(ctx, layer)
-                           for repo in ctx.config.get_repos()
-                           for layer in repo.layers)))
+                fds.write(
+                    ' \\\n    '.join(
+                        sorted(
+                            _get_layer_path_under_topdir(ctx, layer)
+                            for repo in ctx.config.get_repos()
+                            for layer in repo.layers
+                        )
+                    )
+                )
                 fds.write('"\n')
                 fds.write('BBPATH ?= "${TOPDIR}"\n')
                 fds.write('BBFILES ??= ""\n')
@@ -277,12 +278,9 @@ class WriteBBConfig(Command):
             filename = ctx.build_dir + '/conf/local.conf'
             with open(filename, 'w') as fds:
                 fds.write(ctx.config.get_local_conf_header())
-                fds.write('MACHINE ??= "{}"\n'.format(
-                    ctx.config.get_machine()))
-                fds.write('DISTRO ??= "{}"\n'.format(
-                    ctx.config.get_distro()))
-                fds.write('BBMULTICONFIG ?= "{}"\n'.format(
-                    ctx.config.get_multiconfig()))
+                fds.write('MACHINE ??= "{}"\n'.format(ctx.config.get_machine()))
+                fds.write('DISTRO ??= "{}"\n'.format(ctx.config.get_distro()))
+                fds.write('BBMULTICONFIG ?= "{}"\n'.format(ctx.config.get_multiconfig()))
 
         _write_bblayers_conf(ctx)
         _write_local_conf(ctx)
@@ -290,7 +288,7 @@ class WriteBBConfig(Command):
 
 class ReposFetch(Command):
     """
-        Fetches repositories defined in the configuration
+    Fetches repositories defined in the configuration
     """
 
     def __str__(self):
@@ -302,7 +300,7 @@ class ReposFetch(Command):
 
 class ReposApplyPatches(Command):
     """
-        Applies the patches defined in the configuration to the repositories.
+    Applies the patches defined in the configuration to the repositories.
     """
 
     def __str__(self):
@@ -314,7 +312,7 @@ class ReposApplyPatches(Command):
 
 class ReposCheckout(Command):
     """
-        Ensures that the right revision of each repo is checked out.
+    Ensures that the right revision of each repo is checked out.
     """
 
     def __str__(self):
@@ -327,7 +325,7 @@ class ReposCheckout(Command):
 
 class InitSetupRepos(Command):
     """
-        Prepares setting up repos including the include logic
+    Prepares setting up repos including the include logic
     """
 
     def __str__(self):
@@ -340,7 +338,7 @@ class InitSetupRepos(Command):
 
 class SetupReposStep(Command):
     """
-        Single step of the checkout repos loop
+    Single step of the checkout repos loop
     """
 
     def __str__(self):
@@ -351,17 +349,14 @@ class SetupReposStep(Command):
             return False
 
         if ctx.missing_repo_names == ctx.missing_repo_names_old:
-            raise IncludeException('Could not fetch all repos needed by '
-                                   'includes.')
+            raise IncludeException('Could not fetch all repos needed by ' 'includes.')
 
-        logging.debug('Missing repos for complete config:\n%s',
-                      pprint.pformat(ctx.missing_repo_names))
+        logging.debug('Missing repos for complete config:\n%s', pprint.pformat(ctx.missing_repo_names))
 
         ctx.missing_repos = []
         for repo_name in ctx.missing_repo_names:
             if repo_name not in ctx.config.get_repos_config():
-                raise IncludeException('Include references unknown repo: {}'
-                                       .format(repo_name))
+                raise IncludeException('Include references unknown repo: {}'.format(repo_name))
             ctx.missing_repos.append(ctx.config.get_repo(repo_name))
 
         repos_fetch(ctx.missing_repos)
@@ -369,22 +364,19 @@ class SetupReposStep(Command):
         for repo in ctx.missing_repos:
             repo.checkout()
 
-        ctx.config.repo_dict.update(
-            {repo.name: repo for repo in ctx.missing_repos})
+        ctx.config.repo_dict.update({repo.name: repo for repo in ctx.missing_repos})
 
-        repo_paths = {r: ctx.config.repo_dict[r].path for r
-                      in ctx.config.repo_dict}
+        repo_paths = {r: ctx.config.repo_dict[r].path for r in ctx.config.repo_dict}
         ctx.missing_repo_names_old = ctx.missing_repo_names
 
-        ctx.missing_repo_names = \
-            ctx.config.find_missing_repos(repo_paths)
+        ctx.missing_repo_names = ctx.config.find_missing_repos(repo_paths)
 
         return ctx.missing_repo_names
 
 
 class FinishSetupRepos(Command):
     """
-        Finalizes the repo setup loop
+    Finalizes the repo setup loop
     """
 
     def __str__(self):
@@ -397,5 +389,4 @@ class FinishSetupRepos(Command):
         for repo in ctx.config.get_repos():
             repo.checkout()
 
-        logging.debug('Configuration from config file:\n%s',
-                      pprint.pformat(ctx.config.get_config()))
+        logging.debug('Configuration from config file:\n%s', pprint.pformat(ctx.config.get_config()))

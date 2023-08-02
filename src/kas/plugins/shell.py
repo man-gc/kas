@@ -24,13 +24,12 @@
 import logging
 import os
 import subprocess
-from kas.context import create_global_context
+
 from kas.config import Config
-from kas.libcmds import Macro, Command, SetupHome
-from kas.libkas import setup_parser_common_args
-from kas.libkas import setup_parser_preserve_env_arg
-from kas.libkas import run_handle_preserve_env_arg
+from kas.context import create_global_context
 from kas.kasusererror import CommandExecError
+from kas.libcmds import Command, Macro, SetupHome
+from kas.libkas import run_handle_preserve_env_arg, setup_parser_common_args, setup_parser_preserve_env_arg
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
@@ -38,7 +37,7 @@ __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
 
 class Shell:
     """
-        Implements a kas plugin that opens a shell within the kas environment.
+    Implements a kas plugin that opens a shell within the kas environment.
     """
 
     name = 'shell'
@@ -47,21 +46,19 @@ class Shell:
     @classmethod
     def setup_parser(cls, parser):
         """
-            Setup the argument parser for the shell plugin
+        Setup the argument parser for the shell plugin
         """
 
         setup_parser_common_args(parser)
         setup_parser_preserve_env_arg(parser)
-        parser.add_argument('-k', '--keep-config-unchanged',
-                            help='Skip steps that change the configuration',
-                            action='store_true')
-        parser.add_argument('-c', '--command',
-                            help='Run command',
-                            default='')
+        parser.add_argument(
+            '-k', '--keep-config-unchanged', help='Skip steps that change the configuration', action='store_true'
+        )
+        parser.add_argument('-c', '--command', help='Run command', default='')
 
     def run(self, args):
         """
-            Runs this kas plugin
+        Runs this kas plugin
         """
 
         ctx = create_global_context(args)
@@ -86,7 +83,7 @@ class Shell:
 
 class ShellCommand(Command):
     """
-        This class implements the command that starts a shell.
+    This class implements the command that starts a shell.
     """
 
     def __init__(self, cmd):
@@ -99,9 +96,11 @@ class ShellCommand(Command):
         return 'shell'
 
     def execute(self, ctx):
-        logging.info("To start the default build, run: bitbake -c %s %s",
-                     ctx.config.get_bitbake_task(),
-                     ' '.join(ctx.config.get_bitbake_targets()))
+        logging.info(
+            "To start the default build, run: bitbake -c %s %s",
+            ctx.config.get_bitbake_task(),
+            ' '.join(ctx.config.get_bitbake_targets()),
+        )
         cmd = [ctx.environ.get('SHELL', '/bin/sh')]
         if self.cmd:
             cmd.append('-c')

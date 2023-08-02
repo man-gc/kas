@@ -11,23 +11,24 @@
 """
 
 import argparse
-import atexit
 import asyncio
-import traceback
+import atexit
 import logging
+import os
 import signal
 import sys
-import os
-from .kasusererror import KasUserError, CommandExecError
+import traceback
+
+from .kasusererror import CommandExecError, KasUserError
 
 try:
     import colorlog
+
     HAVE_COLORLOG = True
 except ImportError:
     HAVE_COLORLOG = False
 
-from . import __version__, __file_version__, __compatible_file_version__
-from . import plugins
+from . import __compatible_file_version__, __file_version__, __version__, plugins
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
@@ -37,7 +38,7 @@ default_log_level = 'info'
 
 def create_logger():
     """
-        Setup the logging environment
+    Setup the logging environment
     """
     log = logging.getLogger()  # root logger
     log.setLevel(logging.getLevelName(default_log_level.upper()))
@@ -45,13 +46,14 @@ def create_logger():
     date_format = '%Y-%m-%d %H:%M:%S'
     if HAVE_COLORLOG and os.isatty(2):
         cformat = '%(log_color)s' + format_str
-        colors = {'DEBUG': 'reset',
-                  'INFO': 'reset',
-                  'WARNING': 'bold_yellow',
-                  'ERROR': 'bold_red',
-                  'CRITICAL': 'bold_red'}
-        formatter = colorlog.ColoredFormatter(cformat, date_format,
-                                              log_colors=colors)
+        colors = {
+            'DEBUG': 'reset',
+            'INFO': 'reset',
+            'WARNING': 'bold_yellow',
+            'ERROR': 'bold_red',
+            'CRITICAL': 'bold_red',
+        }
+        formatter = colorlog.ColoredFormatter(cformat, date_format, log_colors=colors)
     else:
         formatter = logging.Formatter(format_str, date_format)
     stream_handler = logging.StreamHandler()
@@ -62,14 +64,14 @@ def create_logger():
 
 def interruption():
     """
-        Ignore SIGINT/SIGTERM in kas, let them be handled by our sub-processes
+    Ignore SIGINT/SIGTERM in kas, let them be handled by our sub-processes
     """
     pass
 
 
 def _atexit_handler():
     """
-        Waits for completion of the event loop
+    Waits for completion of the event loop
     """
     try:
         loop = asyncio.get_running_loop()
@@ -95,7 +97,7 @@ def _atexit_handler():
 
 def kas_get_argparser():
     """
-        Creates an argparser for kas with all plugins.
+    Creates an argparser for kas with all plugins.
     """
 
     # Load plugins here so that the commands and arguments introduced by the
@@ -103,24 +105,29 @@ def kas_get_argparser():
     # documentation
     plugins.load()
 
-    parser = argparse.ArgumentParser(description='kas - setup tool for '
-                                     'bitbake based project')
+    parser = argparse.ArgumentParser(description='kas - setup tool for ' 'bitbake based project')
 
-    verstr = '%(prog)s {} (configuration format version {}, ' \
-        'earliest compatible version {})'.format(__version__, __file_version__,
-                                                 __compatible_file_version__)
+    verstr = '%(prog)s {} (configuration format version {}, ' 'earliest compatible version {})'.format(
+        __version__, __file_version__, __compatible_file_version__
+    )
     parser.add_argument('--version', action='version', version=verstr)
 
-    parser.add_argument('-d', '--debug',
-                        action='store_const', const='debug', dest='log_level',
-                        help='Enable debug logging (deprecated, use '
-                             '--log-level debug).')
+    parser.add_argument(
+        '-d',
+        '--debug',
+        action='store_const',
+        const='debug',
+        dest='log_level',
+        help='Enable debug logging (deprecated, use ' '--log-level debug).',
+    )
 
-    parser.add_argument('-l', '--log-level',
-                        choices=['debug', 'info', 'warning', 'error',
-                                 'critical'],
-                        default='%s' % (default_log_level),
-                        help='Set log level (default: %s)' % default_log_level)
+    parser.add_argument(
+        '-l',
+        '--log-level',
+        choices=['debug', 'info', 'warning', 'error', 'critical'],
+        default='%s' % (default_log_level),
+        help='Set log level (default: %s)' % default_log_level,
+    )
 
     subparser = parser.add_subparsers(help='sub command help', dest='cmd')
 
@@ -133,7 +140,7 @@ def kas_get_argparser():
 
 def kas(argv):
     """
-        The actual main entry point of kas.
+    The actual main entry point of kas.
     """
     create_logger()
 
@@ -162,7 +169,7 @@ def kas(argv):
 
 def main():
     """
-        The main function that operates as a wrapper around kas.
+    The main function that operates as a wrapper around kas.
     """
 
     try:

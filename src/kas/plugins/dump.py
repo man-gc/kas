@@ -47,14 +47,16 @@
     Note, that the lockfiles should be checked-in into the VCS.
 """
 
-import sys
 import json
-import yaml
-from typing import TypeVar, TextIO
+import sys
 from collections import OrderedDict
+from typing import TextIO, TypeVar
+
+import yaml
+
 from kas.context import get_context
+from kas.kasusererror import ArgsCombinationError, KasUserError
 from kas.plugins.checkout import Checkout
-from kas.kasusererror import KasUserError, ArgsCombinationError
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2022'
@@ -118,15 +120,10 @@ class Dump(Checkout):
         def represent_data(self, data):
             if isinstance(data, str):
                 if data.count('\n') > 0:
-                    return self.represent_scalar(
-                        'tag:yaml.org,2002:str',
-                        data,
-                        style='|')
+                    return self.represent_scalar('tag:yaml.org,2002:str', data, style='|')
                 return self.represent_scalar('tag:yaml.org,2002:str', data)
             elif isinstance(data, OrderedDict):
-                return self.represent_mapping(
-                    'tag:yaml.org,2002:map',
-                    data.items())
+                return self.represent_mapping('tag:yaml.org,2002:map', data.items())
             elif data is None:
                 return self.represent_scalar('tag:yaml.org,2002:null', '')
             return super().represent_data(data)
@@ -135,26 +132,12 @@ class Dump(Checkout):
     def setup_parser(cls, parser):
         super().setup_parser(parser)
         lk_or_env = parser.add_mutually_exclusive_group()
-        parser.add_argument('--format',
-                            choices=['yaml', 'json'],
-                            default='yaml',
-                            help='Output format (default: yaml)')
-        parser.add_argument('--indent',
-                            type=int,
-                            default=4,
-                            help='Line indent (# of spaces, default: 4)')
-        parser.add_argument('--resolve-refs',
-                            action='store_true',
-                            help='Replace floating refs with exact SHAs')
-        lk_or_env.add_argument('--resolve-env',
-                               action='store_true',
-                               help='Set env defaults to captured env value')
-        lk_or_env.add_argument('--lock',
-                               action='store_true',
-                               help='Create lockfile with exact SHAs')
-        parser.add_argument('-i', '--inplace',
-                            action='store_true',
-                            help='Update lockfile in-place (reqires --lock)')
+        parser.add_argument('--format', choices=['yaml', 'json'], default='yaml', help='Output format (default: yaml)')
+        parser.add_argument('--indent', type=int, default=4, help='Line indent (# of spaces, default: 4)')
+        parser.add_argument('--resolve-refs', action='store_true', help='Replace floating refs with exact SHAs')
+        lk_or_env.add_argument('--resolve-env', action='store_true', help='Set env defaults to captured env value')
+        lk_or_env.add_argument('--lock', action='store_true', help='Create lockfile with exact SHAs')
+        parser.add_argument('-i', '--inplace', action='store_true', help='Update lockfile in-place (reqires --lock)')
 
     def run(self, args):
         args.skip += [
@@ -167,8 +150,7 @@ class Dump(Checkout):
         super().run(args)
         ctx = get_context()
         schema_v = 14 if args.lock else 7
-        config_expanded = {'header': {'version': schema_v}} if args.lock \
-            else ctx.config.get_config()
+        config_expanded = {'header': {'version': schema_v}} if args.lock else ctx.config.get_config()
         repos = ctx.config.get_repos()
         output = IoTarget(target=sys.stdout, managed=False)
 
@@ -179,8 +161,7 @@ class Dump(Checkout):
             args.resolve_refs = True
             # when locking, only consider repos managed by kas
             repos = [r for r in repos if not r.operations_disabled]
-            config_expanded['overrides'] = \
-                {'repos': {r.name: {'commit': r.revision} for r in repos}}
+            config_expanded['overrides'] = {'repos': {r.name: {'commit': r.revision} for r in repos}}
 
         if args.lock and args.inplace:
             lockfile = ctx.config.handler.get_lockfile()
@@ -205,10 +186,7 @@ class Dump(Checkout):
                 json.dump(config_expanded, f, indent=args.indent)
                 f.write('\n')
             elif args.format == 'yaml':
-                yaml.dump(
-                    config_expanded, f,
-                    indent=args.indent,
-                    Dumper=self.KasYamlDumper)
+                yaml.dump(config_expanded, f, indent=args.indent, Dumper=self.KasYamlDumper)
             else:
                 raise OutputFormatError(args.format)
 

@@ -19,12 +19,12 @@
 import logging
 import subprocess
 import sys
-from kas.context import create_global_context
+
 from kas.config import Config
-from kas.libkas import find_program, run_cmd
-from kas.libcmds import Macro, Command
-from kas.libkas import setup_parser_common_args
+from kas.context import create_global_context
 from kas.kasusererror import CommandExecError
+from kas.libcmds import Command, Macro
+from kas.libkas import find_program, run_cmd, setup_parser_common_args
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
@@ -32,35 +32,32 @@ __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
 
 class Build:
     """
-        This class implements the build plugin for kas.
+    This class implements the build plugin for kas.
     """
 
     name = 'build'
     helpmsg = (
-        'Checks out all necessary repositories and builds using bitbake as '
-        'specified in the configuration file.'
+        'Checks out all necessary repositories and builds using bitbake as ' 'specified in the configuration file.'
     )
 
     @classmethod
     def setup_parser(cls, parser):
         """
-            Setup the argument parser for the build plugin
+        Setup the argument parser for the build plugin
         """
 
         setup_parser_common_args(parser)
-        parser.add_argument('extra_bitbake_args',
-                            nargs='*',
-                            help='Extra arguments to pass to bitbake '
-                                 '(typically requires separation via \'--\')')
-        parser.add_argument('--target',
-                            action='append',
-                            help='Select target to build')
-        parser.add_argument('-c', '--cmd', '--task', dest='task',
-                            help='Select which task should be executed')
+        parser.add_argument(
+            'extra_bitbake_args',
+            nargs='*',
+            help='Extra arguments to pass to bitbake ' '(typically requires separation via \'--\')',
+        )
+        parser.add_argument('--target', action='append', help='Select target to build')
+        parser.add_argument('-c', '--cmd', '--task', dest='task', help='Select which task should be executed')
 
     def run(self, args):
         """
-            Executes the build command of the kas plugin.
+        Executes the build command of the kas plugin.
         """
 
         if args.config and args.config.startswith('-'):
@@ -77,7 +74,7 @@ class Build:
 
 class BuildCommand(Command):
     """
-        Implements the bitbake build step.
+    Implements the bitbake build step.
     """
 
     def __init__(self, extra_bitbake_args):
@@ -89,12 +86,17 @@ class BuildCommand(Command):
 
     def execute(self, ctx):
         """
-            Executes the bitbake build command.
+        Executes the bitbake build command.
         """
         # Start bitbake build of image
         bitbake = find_program(ctx.environ['PATH'], 'bitbake')
-        cmd = [bitbake, '-c', ctx.config.get_bitbake_task()] \
-            + self.extra_bitbake_args + ctx.config.get_bitbake_targets()
+        cmd = [
+            bitbake,
+            '-c',
+            ctx.config.get_bitbake_task(),
+            *self.extra_bitbake_args,
+            *ctx.config.get_bitbake_targets(),
+        ]
         if sys.stdout.isatty():
             logging.info('%s$ %s', ctx.build_dir, ' '.join(cmd))
             ret = subprocess.call(cmd, env=ctx.environ, cwd=ctx.build_dir)

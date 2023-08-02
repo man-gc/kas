@@ -9,18 +9,17 @@
     kas.
 """
 
-import os
-from pathlib import Path
-from collections import OrderedDict
-from collections.abc import Mapping
 import functools
 import logging
+import os
+from collections import OrderedDict
+from collections.abc import Mapping
+from pathlib import Path
 
 from jsonschema.validators import validator_for
 
+from . import CONFIGSCHEMA, __compatible_file_version__, __file_version__
 from .kasusererror import KasUserError
-from . import __file_version__, __compatible_file_version__
-from . import CONFIGSCHEMA
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2017-2021'
@@ -31,29 +30,31 @@ SOURCE_DIR_HOST_OVERRIDE_KEY = '_source_dir_host'
 
 class LoadConfigException(KasUserError):
     """
-        Class for exceptions that appear while loading a configuration file.
+    Class for exceptions that appear while loading a configuration file.
     """
+
     def __init__(self, message, filename):
         super().__init__('{}: {}'.format(message, filename))
 
 
 def load_config(filename):
     """
-        Load the configuration file and test if version is supported.
+    Load the configuration file and test if version is supported.
     """
     (_, ext) = os.path.splitext(filename)
     config = None
     if ext == '.json':
         import json
+
         with open(filename, 'rb') as fds:
             config = json.load(fds)
     elif ext in ['.yml', '.yaml']:
         import yaml
+
         with open(filename, 'rb') as fds:
             config = yaml.safe_load(fds)
     else:
-        raise LoadConfigException('Config file extension not recognized',
-                                  filename)
+        raise LoadConfigException('Config file extension not recognized', filename)
 
     validator_class = validator_for(CONFIGSCHEMA)
     validator = validator_class(CONFIGSCHEMA)
@@ -64,8 +65,7 @@ def load_config(filename):
         logging.error('Config file validation Error:\n%s', error)
 
     if validation_error:
-        raise LoadConfigException('Error(s) occured while validating the '
-                                  'config file', filename)
+        raise LoadConfigException('Error(s) occured while validating the ' 'config file', filename)
 
     try:
         version_value = int(config['header']['version'])
@@ -75,47 +75,48 @@ def load_config(filename):
         # right version
         version_value = 1
 
-    if version_value < __compatible_file_version__ or \
-       version_value > __file_version__:
-        raise LoadConfigException('This version of kas is compatible with '
-                                  'version {} to {}, file has version {}'
-                                  .format(__compatible_file_version__,
-                                          __file_version__, version_value),
-                                  filename)
+    if version_value < __compatible_file_version__ or version_value > __file_version__:
+        raise LoadConfigException(
+            'This version of kas is compatible with '
+            'version {} to {}, file has version {}'.format(
+                __compatible_file_version__, __file_version__, version_value
+            ),
+            filename,
+        )
 
     if config.get('proxy_config'):
-        logging.warning('Obsolete ''proxy_config'' detected. '
-                        'This has no effect and will be rejected soon.')
+        logging.warning('Obsolete ' 'proxy_config' ' detected. ' 'This has no effect and will be rejected soon.')
 
     return (config, config.get(SOURCE_DIR_OVERRIDE_KEY, None))
 
 
 class IncludeException(KasUserError):
     """
-        Class for exceptions that appear in the include mechanism.
+    Class for exceptions that appear in the include mechanism.
     """
+
     pass
 
 
 class IncludeHandler:
     """
-        Implements a handler where every configuration file should
-        contain a dictionary as the base type with and 'includes'
-        key containing a list of includes.
+    Implements a handler where every configuration file should
+    contain a dictionary as the base type with and 'includes'
+    key containing a list of includes.
 
-        The includes can be specified in two ways: as a string
-        containing the path, relative to the repository root from the
-        current file, or as a dictionary. The dictionary must have a
-        'file' key containing the path to the include file and a 'repo'
-        key containing the key of the repository. The path is interpreted
-        relative to the repository root path.
+    The includes can be specified in two ways: as a string
+    containing the path, relative to the repository root from the
+    current file, or as a dictionary. The dictionary must have a
+    'file' key containing the path to the include file and a 'repo'
+    key containing the key of the repository. The path is interpreted
+    relative to the repository root path.
 
-        The includes are read and merged from the deepest level upwards.
+    The includes are read and merged from the deepest level upwards.
 
-        In case ``ignore_lock`` is ``false``, kas checks if a file
-        ``<file>.lock.<ext>`` exists next to the first entry in
-        ``top_files``. This filename is then appended to the list of
-        ``top_files``.
+    In case ``ignore_lock`` is ``false``, kas checks if a file
+    ``<file>.lock.<ext>`` exists next to the first entry in
+    ``top_files``. This filename is then appended to the list of
+    ``top_files``.
     """
 
     def __init__(self, top_files, top_repo_path, use_lock=True):
@@ -185,11 +186,9 @@ class IncludeHandler:
                     repo_path = src_dir
 
             except FileNotFoundError:
-                raise LoadConfigException('Configuration file not found',
-                                          filename)
+                raise LoadConfigException('Configuration file not found', filename) from None
             if not isinstance(current_config, Mapping):
-                raise IncludeException('Configuration file does not contain a '
-                                       'dictionary as base type')
+                raise IncludeException('Configuration file does not contain a ' 'dictionary as base type')
             header = current_config.get('header', {})
 
             for include in header.get('includes', []):
@@ -198,22 +197,18 @@ class IncludeHandler:
                     if include.startswith(os.path.pathsep):
                         includefile = include
                     else:
-                        includefile = os.path.abspath(
-                            os.path.join(repo_path, include))
+                        includefile = os.path.abspath(os.path.join(repo_path, include))
                         if not os.path.exists(includefile):
-                            alternate = os.path.abspath(
-                                os.path.join(os.path.dirname(filename),
-                                             include))
+                            alternate = os.path.abspath(os.path.join(os.path.dirname(filename), include))
                             if os.path.exists(alternate):
                                 logging.warning(
-                                    'Falling back to file-relative addressing '
-                                    'of local include "%s"', include)
+                                    'Falling back to file-relative addressing ' 'of local include "%s"', include
+                                )
                                 logging.warning(
-                                    'Update your layer to repo-relative '
-                                    'addressing to avoid this warning')
+                                    'Update your layer to repo-relative ' 'addressing to avoid this warning'
+                                )
                                 includefile = alternate
-                    (cfg, rep) = _internal_include_handler(includefile,
-                                                           repo_path)
+                    (cfg, rep) = _internal_include_handler(includefile, repo_path)
                     configs.extend(cfg)
                     missing_repos.extend(rep)
                 elif isinstance(include, Mapping):
@@ -223,13 +218,11 @@ class IncludeHandler:
                         try:
                             includefile = include['file']
                         except KeyError:
-                            raise IncludeException(
-                                '"file" is not specified: {}'
-                                .format(include))
+                            raise IncludeException('"file" is not specified: {}'.format(include)) from None
                         abs_includedir = os.path.abspath(includedir)
                         (cfg, rep) = _internal_include_handler(
-                            os.path.join(abs_includedir, includefile),
-                            abs_includedir)
+                            os.path.join(abs_includedir, includefile), abs_includedir
+                        )
                         configs.extend(cfg)
                         missing_repos.extend(rep)
                     else:
@@ -247,8 +240,7 @@ class IncludeHandler:
             otherwise it will fall back on a manual merge (helpful for non-dict
             types like FunctionWrapper)
             """
-            if (not isinstance(dest, Mapping)) \
-                    or (not isinstance(upd, Mapping)):
+            if (not isinstance(dest, Mapping)) or (not isinstance(upd, Mapping)):
                 raise IncludeException('Cannot merge using non-dict')
             dest = OrderedDict(dest)
             updkeys = list(upd.keys())
@@ -261,8 +253,7 @@ class IncludeHandler:
                         dest_subkey = dest.get(key, None)
                     except AttributeError:
                         dest_subkey = None
-                    if isinstance(dest_subkey, Mapping) \
-                            and isinstance(val, Mapping):
+                    if isinstance(dest_subkey, Mapping) and isinstance(val, Mapping):
                         ret = _internal_dict_merge(dest_subkey, val)
                         dest[key] = ret
                     else:
@@ -280,13 +271,11 @@ class IncludeHandler:
         configs = []
         missing_repos = []
         for configfile in self.top_files:
-            cfgs, reps = _internal_include_handler(configfile,
-                                                   self.top_repo_path)
+            cfgs, reps = _internal_include_handler(configfile, self.top_repo_path)
             configs.extend(cfgs)
             for repo in reps:
                 if repo not in missing_repos:
                     missing_repos.append(repo)
 
-        config = functools.reduce(_internal_dict_merge,
-                                  map(lambda x: x[1], configs))
+        config = functools.reduce(_internal_dict_merge, map(lambda x: x[1], configs))
         return config, missing_repos

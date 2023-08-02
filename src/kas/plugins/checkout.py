@@ -17,8 +17,8 @@
         kas checkout kas-project.yml
 """
 
-from kas.context import create_global_context
 from kas.config import Config
+from kas.context import create_global_context
 from kas.libcmds import Macro
 from kas.libkas import setup_parser_common_args
 

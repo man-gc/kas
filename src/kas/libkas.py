@@ -7,18 +7,19 @@
     This module contains the core implementation of kas.
 """
 
-import re
-import os
-import sys
-import logging
-import tempfile
 import asyncio
 import errno
+import logging
+import os
 import pathlib
+import re
 import signal
-from subprocess import Popen, PIPE
+import sys
+import tempfile
+from subprocess import PIPE, Popen
+
 from .context import get_context
-from .kasusererror import KasUserError, CommandExecError
+from .kasusererror import CommandExecError, KasUserError
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
@@ -28,6 +29,7 @@ class InitBuildEnvError(KasUserError):
     """
     Error related to the OE / ISAR environment setup scripts
     """
+
     pass
 
 
@@ -35,6 +37,7 @@ class EnvNotValidError(KasUserError):
     """
     The caller environment is not suited for the requested operation
     """
+
     pass
 
 
@@ -43,6 +46,7 @@ class TaskExecError(KasUserError):
     Similar to :class:`kas.kasusererror.CommandExecError` but for kas
     internal tasks
     """
+
     def __init__(self, command, ret_code):
         self.ret_code = ret_code
         super().__init__('{} failed: error code {}'.format(command, ret_code))
@@ -50,8 +54,9 @@ class TaskExecError(KasUserError):
 
 class LogOutput:
     """
-        Handles the log output of executed applications
+    Handles the log output of executed applications
     """
+
     def __init__(self, live):
         self.live = live
         self.stdout = []
@@ -59,7 +64,7 @@ class LogOutput:
 
     def log_stdout(self, line):
         """
-            This method is called when a line is received over stdout.
+        This method is called when a line is received over stdout.
         """
         if self.live:
             logging.info(line.strip())
@@ -67,7 +72,7 @@ class LogOutput:
 
     def log_stderr(self, line):
         """
-            This method is called when a line is received over stderr.
+        This method is called when a line is received over stderr.
         """
         if self.live:
             logging.error(line.strip())
@@ -76,16 +81,15 @@ class LogOutput:
 
 async def _read_stream(stream, callback):
     """
-        This asynchronous method reads from the output stream of the
-        application and transfers each line to the callback function.
+    This asynchronous method reads from the output stream of the
+    application and transfers each line to the callback function.
     """
     while True:
         line = await stream.readline()
         try:
             line = line.decode('utf-8')
         except UnicodeDecodeError as err:
-            logging.warning('Could not decode line from stream, ignoring: %s',
-                            err)
+            logging.warning('Could not decode line from stream, ignoring: %s', err)
         if line:
             callback(line)
         else:
@@ -94,7 +98,7 @@ async def _read_stream(stream, callback):
 
 async def run_cmd_async(cmd, cwd, env=None, fail=True, liveupdate=True):
     """
-        Run a command asynchronously.
+    Run a command asynchronously.
     """
 
     env = env or get_context().environ
@@ -112,11 +116,8 @@ async def run_cmd_async(cmd, cwd, env=None, fail=True, liveupdate=True):
 
     try:
         process = await asyncio.create_subprocess_exec(
-            *cmd,
-            cwd=cwd,
-            env=env,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE)
+            *cmd, cwd=cwd, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        )
     except FileNotFoundError as ex:
         if fail:
             raise ex
@@ -128,7 +129,7 @@ async def run_cmd_async(cmd, cwd, env=None, fail=True, liveupdate=True):
 
     tasks = [
         asyncio.ensure_future(_read_stream(process.stdout, logo.log_stdout)),
-        asyncio.ensure_future(_read_stream(process.stderr, logo.log_stderr))
+        asyncio.ensure_future(_read_stream(process.stderr, logo.log_stderr)),
     ]
     await asyncio.wait(tasks)
     ret = await process.wait()
@@ -147,12 +148,11 @@ async def run_cmd_async(cmd, cwd, env=None, fail=True, liveupdate=True):
 
 def run_cmd(cmd, cwd, env=None, fail=True, liveupdate=True):
     """
-        Runs a command synchronously.
+    Runs a command synchronously.
     """
 
     loop = asyncio.get_event_loop()
-    (ret, output) = loop.run_until_complete(
-        run_cmd_async(cmd, cwd, env, fail, liveupdate))
+    (ret, output) = loop.run_until_complete(run_cmd_async(cmd, cwd, env, fail, liveupdate))
     if ret and fail:
         raise CommandExecError(cmd, ret)
     return (ret, output)
@@ -160,7 +160,7 @@ def run_cmd(cmd, cwd, env=None, fail=True, liveupdate=True):
 
 def find_program(paths, name):
     """
-        Find a file within the paths array and returns its path.
+    Find a file within the paths array and returns its path.
     """
     for path in paths.split(os.pathsep):
         prg = os.path.join(path, name)
@@ -171,7 +171,7 @@ def find_program(paths, name):
 
 def repos_fetch(repos):
     """
-        Fetches the list of repositories to the kas_work_dir.
+    Fetches the list of repositories to the kas_work_dir.
     """
     if len(repos) == 0:
         return
@@ -184,12 +184,12 @@ def repos_fetch(repos):
     try:
         loop.run_until_complete(asyncio.gather(*tasks))
     except CommandExecError as e:
-        raise TaskExecError('fetch repos', e.ret_code)
+        raise TaskExecError('fetch repos', e.ret_code) from e
 
 
 def repos_apply_patches(repos):
     """
-        Applies the patches to the repositories.
+    Applies the patches to the repositories.
     """
     if len(repos) == 0:
         return
@@ -202,12 +202,12 @@ def repos_apply_patches(repos):
     try:
         loop.run_until_complete(asyncio.gather(*tasks))
     except CommandExecError as e:
-        raise TaskExecError('apply patches', e.ret_code)
+        raise TaskExecError('apply patches', e.ret_code) from e
 
 
 def get_build_environ(build_system):
     """
-        Creates the build environment variables.
+    Creates the build environment variables.
     """
     # nasty side effect function: running oe/isar-init-build-env also
     # creates the conf directory
@@ -219,16 +219,14 @@ def get_build_environ(build_system):
         scripts = ['isar-init-build-env']
     else:
         scripts = ['oe-init-build-env', 'isar-init-build-env']
-    permutations = \
-        [(repo, script) for repo in get_context().config.get_repos()
-         for script in scripts]
-    for (repo, script) in permutations:
+    permutations = [(repo, script) for repo in get_context().config.get_repos() for script in scripts]
+    for repo, script in permutations:
         if os.path.exists(repo.path + '/' + script):
             if init_repo:
                 raise InitBuildEnvError(
                     'Multiple init scripts found ({} vs. {}). '
-                    'Resolve ambiguity by removing one of the repos'
-                    .format(repo.name, init_repo.name))
+                    'Resolve ambiguity by removing one of the repos'.format(repo.name, init_repo.name)
+                )
 
             init_repo = repo
             init_script = script
@@ -236,11 +234,14 @@ def get_build_environ(build_system):
         raise InitBuildEnvError('Did not find any init-build-env script')
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        script = """#!/bin/bash
+        script = (
+            """#!/bin/bash
         set -e
         source %s $1 > /dev/null
         env
-        """ % init_script
+        """
+            % init_script
+        )
 
         get_bb_env_file = pathlib.Path(temp_dir) / "get_bb_env"
         get_bb_env_file.write_text(script)
@@ -249,8 +250,9 @@ def get_build_environ(build_system):
         env = {}
         env['PATH'] = '/usr/sbin:/usr/bin:/sbin:/bin'
 
-        (_, output) = run_cmd([str(get_bb_env_file), get_context().build_dir],
-                              cwd=init_repo.path, env=env, liveupdate=False)
+        (_, output) = run_cmd(
+            [str(get_bb_env_file), get_context().build_dir], cwd=init_repo.path, env=env, liveupdate=False
+        )
 
     env = {}
     for line in output.splitlines():
@@ -268,16 +270,13 @@ def get_build_environ(build_system):
     env.update(conf_env)
 
     if 'BB_ENV_PASSTHROUGH_ADDITIONS' in env:
-        passthrough_additions = env['BB_ENV_PASSTHROUGH_ADDITIONS'] + ' ' + \
-            ' '.join(env_vars)
+        passthrough_additions = env['BB_ENV_PASSTHROUGH_ADDITIONS'] + ' ' + ' '.join(env_vars)
         env.update({'BB_ENV_PASSTHROUGH_ADDITIONS': passthrough_additions})
     elif 'BB_ENV_EXTRAWHITE' in env:
         extra_white = env['BB_ENV_EXTRAWHITE'] + ' ' + ' '.join(env_vars)
         env.update({'BB_ENV_EXTRAWHITE': extra_white})
 
-    env_vars.extend(['SSH_AUTH_SOCK',
-                     'SHELL', 'TERM',
-                     'GIT_PROXY_COMMAND', 'NO_PROXY'])
+    env_vars.extend(['SSH_AUTH_SOCK', 'SHELL', 'TERM', 'GIT_PROXY_COMMAND', 'NO_PROXY'])
 
     for env_var in env_vars:
         if env_var in os.environ:
@@ -291,7 +290,7 @@ def get_build_environ(build_system):
 
 def ssh_add_key_file(env, key_path):
     """
-        Adds an ssh key file to the ssh-agent
+    Adds an ssh key file to the ssh-agent
     """
     with open(key_path) as f:
         key = f.read()
@@ -300,15 +299,14 @@ def ssh_add_key_file(env, key_path):
 
 def ssh_add_key(env, key):
     """
-        Adds an ssh key to the ssh-agent
+    Adds an ssh key to the ssh-agent
     """
     # The ssh-agent needs the key to end with a newline, otherwise it
     # unhelpfully prompts for a password
     if not key.endswith('\n'):
         key += '\n'
 
-    process = Popen(['ssh-add', '-'], stdin=PIPE, stdout=None,
-                    stderr=PIPE, env=env)
+    process = Popen(['ssh-add', '-'], stdin=PIPE, stdout=None, stderr=PIPE, env=env)
     (_, error) = process.communicate(input=str.encode(key))
     if process.returncode and error:
         logging.error('failed to add ssh key: %s', error)
@@ -316,7 +314,7 @@ def ssh_add_key(env, key):
 
 def ssh_cleanup_agent():
     """
-        Removes the identities and stops the ssh-agent instance
+    Removes the identities and stops the ssh-agent instance
     """
     env = get_context().environ
     # remove the identities
@@ -334,7 +332,7 @@ def ssh_cleanup_agent():
 
 def ssh_setup_agent(envkeys=None):
     """
-        Starts the ssh-agent
+    Starts the ssh-agent
     """
     env = get_context().environ
     envkeys = envkeys or ['SSH_PRIVATE_KEY', 'SSH_PRIVATE_KEY_FILE']
@@ -360,14 +358,13 @@ def ssh_setup_agent(envkeys=None):
                 ssh_add_key(env, key)
 
     if found is not True:
-        warning = "None of the following environment keys were set: " + \
-            ", ".join(envkeys)
+        warning = "None of the following environment keys were set: " + ", ".join(envkeys)
         logging.warning(warning)
 
 
 def ssh_no_host_key_check():
     """
-        Disables ssh host key check
+    Disables ssh host key check
     """
     home = os.path.expanduser('~')
     ssh_dir = home + '/.ssh'
@@ -382,31 +379,28 @@ def ssh_no_host_key_check():
         with open(ssh_config, 'r') as fds:
             content = fds.read()
         if content != generated_content:
-            logging.warning("%s already exists, "
-                            "not touching it to disable StrictHostKeyChecking",
-                            ssh_config)
+            logging.warning("%s already exists, " "not touching it to disable StrictHostKeyChecking", ssh_config)
 
 
 def setup_parser_common_args(parser):
-    parser.add_argument('config',
-                        help='Config file, using .config.yaml in KAS_WORK_DIR '
-                        'if none is specified',
-                        nargs='?')
-    parser.add_argument('--skip',
-                        help='Skip build steps',
-                        default=[])
-    parser.add_argument('--force-checkout', action='store_true',
-                        help='Always checkout the desired commit/branch of '
-                        'each repository, discarding any local changes')
-    parser.add_argument('--update', action='store_true',
-                        help='Pull new upstream changes to the desired '
-                        'branch even if it is already checked out locally')
+    parser.add_argument(
+        'config', help='Config file, using .config.yaml in KAS_WORK_DIR ' 'if none is specified', nargs='?'
+    )
+    parser.add_argument('--skip', help='Skip build steps', default=[])
+    parser.add_argument(
+        '--force-checkout',
+        action='store_true',
+        help='Always checkout the desired commit/branch of ' 'each repository, discarding any local changes',
+    )
+    parser.add_argument(
+        '--update',
+        action='store_true',
+        help='Pull new upstream changes to the desired ' 'branch even if it is already checked out locally',
+    )
 
 
 def setup_parser_preserve_env_arg(parser):
-    parser.add_argument('-E', '--preserve-env',
-                        help='Keep current user environment block',
-                        action='store_true')
+    parser.add_argument('-E', '--preserve-env', help='Keep current user environment block', action='store_true')
 
 
 def run_handle_preserve_env_arg(ctx, os, args, SetupHome):
@@ -415,15 +409,11 @@ def run_handle_preserve_env_arg(ctx, os, args, SetupHome):
         # but are now ignored
         for var in SetupHome.ENV_VARS:
             if var in os.environ:
-                logging.warning('Environment variable "%s" ignored '
-                                'because user environment is being used',
-                                var)
+                logging.warning('Environment variable "%s" ignored ' 'because user environment is being used', var)
 
         if not os.isatty(sys.stdout.fileno()):
-            raise EnvNotValidError(
-                '--preserve-env can only be run from a tty')
+            raise EnvNotValidError('--preserve-env can only be run from a tty')
 
         ctx.environ = os.environ.copy()
 
-        logging.warning("Preserving the current environment block may "
-                        "have unintended side effects on the build.")
+        logging.warning("Preserving the current environment block may " "have unintended side effects on the build.")

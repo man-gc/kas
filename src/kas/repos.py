@@ -7,15 +7,17 @@
     This module contains the Repo class.
 """
 
-import re
-import os
-import sys
 import logging
-from urllib.parse import urlparse
+import os
+import re
+import sys
 from tempfile import TemporaryDirectory
+from typing import ClassVar
+from urllib.parse import urlparse
+
 from .context import get_context
-from .libkas import run_cmd_async, run_cmd
 from .kasusererror import KasUserError
+from .libkas import run_cmd, run_cmd_async
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
@@ -25,6 +27,7 @@ class UnsupportedRepoTypeError(KasUserError, NotImplementedError):
     """
     The requested repo type is unsupported / not implemented
     """
+
     pass
 
 
@@ -32,6 +35,7 @@ class RepoRefError(KasUserError):
     """
     The requested repo reference is invalid, missing or could not be found
     """
+
     pass
 
 
@@ -39,6 +43,7 @@ class PatchFileNotFound(KasUserError, FileNotFoundError):
     """
     The requested patch file was not found
     """
+
     pass
 
 
@@ -46,6 +51,7 @@ class PatchMappingError(KasUserError):
     """
     The requested patch can not be related to a repo
     """
+
     pass
 
 
@@ -57,11 +63,10 @@ class PatchApplyError(KasUserError):
 
 class Repo:
     """
-        Represents a repository in the kas configuration.
+    Represents a repository in the kas configuration.
     """
 
-    def __init__(self, name, url, path, commit, branch, refspec, layers,
-                 patches, disable_operations):
+    def __init__(self, name, url, path, commit, branch, refspec, layers, patches, disable_operations):
         self.name = name
         self.url = url
         self.path = path
@@ -74,16 +79,16 @@ class Repo:
 
     def __getattr__(self, item):
         if item == 'layers':
-            return [os.path.join(self.path, layer).rstrip(os.sep + '.')
-                    for layer in self._layers]
+            return [os.path.join(self.path, layer).rstrip(os.sep + '.') for layer in self._layers]
         elif item == 'qualified_name':
             url = urlparse(self.url)
-            return ('{url.netloc}{url.path}'
-                    .format(url=url)
-                    .replace('@', '.')
-                    .replace(':', '.')
-                    .replace('/', '.')
-                    .replace('*', '.'))
+            return (
+                '{url.netloc}{url.path}'.format(url=url)
+                .replace('@', '.')
+                .replace(':', '.')
+                .replace('/', '.')
+                .replace('*', '.')
+            )
         elif item == 'effective_url':
             mirrors = os.environ.get('KAS_PREMIRRORS', '')
             for mirror in mirrors.split('\n'):
@@ -100,8 +105,7 @@ class Repo:
             branch = self.branch or self.refspec
             if not branch:
                 return None
-            (_, output) = run_cmd(self.resolve_branch_cmd(),
-                                  cwd=self.path, fail=False)
+            (_, output) = run_cmd(self.resolve_branch_cmd(), cwd=self.path, fail=False)
             if output:
                 return output.strip()
             return branch
@@ -111,25 +115,27 @@ class Repo:
 
     def __str__(self):
         if self.commit and self.branch:
-            return '%s:%s(%s) %s %s' % (self.url, self.commit, self.branch,
-                                        self.path, self._layers)
-        return '%s:%s %s %s' % (self.url,
-                                self.commit or self.branch or self.refspec,
-                                self.path, self._layers)
+            return '%s:%s(%s) %s %s' % (self.url, self.commit, self.branch, self.path, self._layers)
+        return '%s:%s %s %s' % (self.url, self.commit or self.branch or self.refspec, self.path, self._layers)
 
-    __legacy_refspec_warned__ = []
+    __legacy_refspec_warned__: ClassVar[list[str]] = []
 
     @staticmethod
-    def factory(name, repo_config, repo_defaults, repo_fallback_path,
-                repo_overrides={}):
+    def factory(name, repo_config, repo_defaults, repo_fallback_path, repo_overrides=None):
         """
-            Returns a Repo instance depending on params.
+        Returns a Repo instance depending on params.
         """
+        if repo_overrides is None:
+            repo_overrides = {}
+
         layers_dict = repo_config.get('layers', {'': None})
-        layers = list(filter(lambda x, laydict=layers_dict:
-                             str(laydict[x]).lower() not in
-                             ['disabled', 'excluded', 'n', 'no', '0', 'false'],
-                             layers_dict))
+        layers = list(
+            filter(
+                lambda x, laydict=layers_dict: str(laydict[x]).lower()
+                not in ['disabled', 'excluded', 'n', 'no', '0', 'false'],
+                layers_dict,
+            )
+        )
         default_patch_repo = repo_defaults.get('patches', {}).get('repo', None)
         patches_dict = repo_config.get('patches', {})
         patches = []
@@ -143,8 +149,8 @@ class Repo:
             }
             if this_patch['repo'] is None:
                 raise PatchMappingError(
-                    'No repo specified for patch entry "{}" and no '
-                    'default repo specified.'.format(p))
+                    'No repo specified for patch entry "{}" and no ' 'default repo specified.'.format(p)
+                )
 
             patches.append(this_patch)
 
@@ -153,25 +159,25 @@ class Repo:
         typ = repo_config.get('type', 'git')
         commit = repo_config.get('commit', None)
         branch = repo_config.get('branch', repo_defaults.get('branch', None))
-        refspec = repo_config.get('refspec',
-                                  repo_defaults.get('refspec', None))
-        if commit is None and branch is None and refspec is None \
-                and url is not None:
-            raise RepoRefError('No commit or branch specified for repository '
-                               '"{}". This is only allowed for local '
-                               'repositories.'.format(name))
+        refspec = repo_config.get('refspec', repo_defaults.get('refspec', None))
+        if commit is None and branch is None and refspec is None and url is not None:
+            raise RepoRefError(
+                'No commit or branch specified for repository '
+                '"{}". This is only allowed for local '
+                'repositories.'.format(name)
+            )
         if refspec is None:
             commit = repo_overrides.get('commit', commit)
         else:
             if name not in Repo.__legacy_refspec_warned__:
-                logging.warning('Using deprecated refspec for repository '
-                                '"%s". You should migrate to commit/branch.',
-                                name)
+                logging.warning(
+                    'Using deprecated refspec for repository ' '"%s". You should migrate to commit/branch.', name
+                )
                 Repo.__legacy_refspec_warned__.append(name)
             if commit is not None or branch is not None:
-                raise RepoRefError('Unsupported mixture of legacy refspec '
-                                   'and commit/branch for repository "{}"'
-                                   .format(name))
+                raise RepoRefError(
+                    'Unsupported mixture of legacy refspec ' 'and commit/branch for repository "{}"'.format(name)
+                )
             refspec = repo_overrides.get('commit', refspec)
         path = repo_config.get('path', None)
         disable_operations = False
@@ -179,8 +185,7 @@ class Repo:
         if path is None:
             if url is None:
                 path = Repo.get_root_path(repo_fallback_path)
-                logging.info('Using %s as root for repository %s', path,
-                             name)
+                logging.info('Using %s as root for repository %s', path, name)
             else:
                 path = os.path.join(get_context().kas_work_dir, name)
         elif not os.path.isabs(path):
@@ -193,25 +198,21 @@ class Repo:
             disable_operations = True
 
         if typ == 'git':
-            return GitRepo(name, url, path, commit, branch, refspec, layers,
-                           patches, disable_operations)
+            return GitRepo(name, url, path, commit, branch, refspec, layers, patches, disable_operations)
         if typ == 'hg':
-            return MercurialRepo(name, url, path, commit, branch, refspec,
-                                 layers, patches, disable_operations)
+            return MercurialRepo(name, url, path, commit, branch, refspec, layers, patches, disable_operations)
         raise UnsupportedRepoTypeError('Repo type "%s" not supported.' % typ)
 
     @staticmethod
     def get_root_path(path, fallback=True):
         """
-            Checks if path is under version control and returns its root path.
+        Checks if path is under version control and returns its root path.
         """
-        (ret, output) = run_cmd(['git', 'rev-parse', '--show-toplevel'],
-                                cwd=path, fail=False, liveupdate=False)
+        (ret, output) = run_cmd(['git', 'rev-parse', '--show-toplevel'], cwd=path, fail=False, liveupdate=False)
         if ret == 0:
             return output.strip()
 
-        (ret, output) = run_cmd(['hg', 'root'],
-                                cwd=path, fail=False, liveupdate=False)
+        (ret, output) = run_cmd(['hg', 'root'], cwd=path, fail=False, liveupdate=False)
         if ret == 0:
             return output.strip()
 
@@ -220,12 +221,12 @@ class Repo:
 
 class RepoImpl(Repo):
     """
-        Provides a generic implementation for a Repo.
+    Provides a generic implementation for a Repo.
     """
 
     async def fetch_async(self):
         """
-            Starts asynchronous repository fetch.
+        Starts asynchronous repository fetch.
         """
 
         if self.operations_disabled:
@@ -237,11 +238,8 @@ class RepoImpl(Repo):
         # fetch to refdir
         if refdir and not os.path.exists(sdir):
             os.makedirs(refdir, exist_ok=True)
-            with TemporaryDirectory(prefix=self.qualified_name + '.',
-                                    dir=refdir) as tmpdir:
-                (retc, _) = await run_cmd_async(
-                    self.clone_cmd(tmpdir, createref=True),
-                    cwd=get_context().kas_work_dir)
+            with TemporaryDirectory(prefix=self.qualified_name + '.', dir=refdir) as tmpdir:
+                (retc, _) = await run_cmd_async(self.clone_cmd(tmpdir, createref=True), cwd=get_context().kas_work_dir)
 
                 logging.debug('Created repo ref for %s', self.qualified_name)
                 try:
@@ -250,72 +248,58 @@ class RepoImpl(Repo):
                         # recreate dir so cleanup handler can delete it
                         os.makedirs(tmpdir, exist_ok=True)
                 except OSError:
-                    logging.debug('repo %s already cloned by other instance',
-                                  self.qualified_name)
+                    logging.debug('repo %s already cloned by other instance', self.qualified_name)
 
         if not os.path.exists(self.path):
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            (retc, _) = await run_cmd_async(
-                self.clone_cmd(sdir, createref=False),
-                cwd=get_context().kas_work_dir)
+            (retc, _) = await run_cmd_async(self.clone_cmd(sdir, createref=False), cwd=get_context().kas_work_dir)
 
             logging.info('Repository %s cloned', self.name)
 
         # Make sure the remote origin is set to the value
         # in the kas file to avoid surprises
         try:
-            (retc, output) = await run_cmd_async(
-                self.set_remote_url_cmd(),
-                cwd=self.path,
-                liveupdate=False)
+            (retc, output) = await run_cmd_async(self.set_remote_url_cmd(), cwd=self.path, liveupdate=False)
         except NotImplementedError:
-            logging.warning('Repo implementation does not support changing '
-                            'the remote url.')
+            logging.warning('Repo implementation does not support changing ' 'the remote url.')
 
         # take what came out of clone and stick to that forever
-        if self.commit is None and self.branch is None \
-           and self.refspec is None:
+        if self.commit is None and self.branch is None and self.refspec is None:
             return 0
 
         if not get_context().update:
             # Do commit/branch/refspec exist in the current repository?
-            (retc, output) = await run_cmd_async(self.contains_refspec_cmd(),
-                                                 cwd=self.path,
-                                                 fail=False,
-                                                 liveupdate=False)
+            (retc, output) = await run_cmd_async(
+                self.contains_refspec_cmd(), cwd=self.path, fail=False, liveupdate=False
+            )
             if retc == 0:
-                logging.info('Repository %s already contains %s as %s',
-                             self.name,
-                             self.commit or self.branch or self.refspec,
-                             output.strip())
+                logging.info(
+                    'Repository %s already contains %s as %s',
+                    self.name,
+                    self.commit or self.branch or self.refspec,
+                    output.strip(),
+                )
                 return retc
 
         # Try to fetch if commit/branch/refspec is missing or if --update
         # argument was passed
-        (retc, output) = await run_cmd_async(self.fetch_cmd(),
-                                             cwd=self.path,
-                                             fail=False)
+        (retc, output) = await run_cmd_async(self.fetch_cmd(), cwd=self.path, fail=False)
         if retc:
-            logging.warning('Could not update repository %s: %s',
-                            self.name, output)
+            logging.warning('Could not update repository %s: %s', self.name, output)
         else:
             logging.info('Repository %s updated', self.name)
         return 0
 
     def checkout(self):
         """
-            Checks out the correct revision of the repo.
+        Checks out the correct revision of the repo.
         """
-        if self.operations_disabled \
-            or (self.commit is None and self.branch is None
-                and self.refspec is None):
+        if self.operations_disabled or (self.commit is None and self.branch is None and self.refspec is None):
             return
 
         if not get_context().force_checkout:
             # Check if repos is dirty
-            (_, output) = run_cmd(self.is_dirty_cmd(),
-                                  cwd=self.path,
-                                  fail=False)
+            (_, output) = run_cmd(self.is_dirty_cmd(), cwd=self.path, fail=False)
             if output:
                 logging.warning('Repo %s is dirty - no checkout', self.name)
                 return
@@ -324,15 +308,12 @@ class RepoImpl(Repo):
             desired_ref = self.commit
             is_branch = False
         else:
-            (_, output) = run_cmd(self.resolve_branch_cmd(),
-                                  cwd=self.path, fail=False)
+            (_, output) = run_cmd(self.resolve_branch_cmd(), cwd=self.path, fail=False)
             if output:
                 desired_ref = output.strip()
                 is_branch = True
             elif self.branch:
-                raise RepoRefError(
-                    'Branch "{}" cannot be found in repository {}'
-                    .format(self.branch, self.name))
+                raise RepoRefError('Branch "{}" cannot be found in repository {}'.format(self.branch, self.name))
             else:
                 desired_ref = self.refspec
                 is_branch = False
@@ -341,33 +322,30 @@ class RepoImpl(Repo):
 
     async def apply_patches_async(self):
         """
-            Applies patches to a repository asynchronously.
+        Applies patches to a repository asynchronously.
         """
         if self.operations_disabled or not self._patches:
             return 0
 
-        (retc, _) = await run_cmd_async(self.prepare_patches_cmd(),
-                                        cwd=self.path)
+        (retc, _) = await run_cmd_async(self.prepare_patches_cmd(), cwd=self.path)
 
         my_patches = []
 
         for patch in self._patches:
-            other_repo = get_context().config.repo_dict.get(patch['repo'],
-                                                            None)
+            other_repo = get_context().config.repo_dict.get(patch['repo'], None)
 
             if not other_repo:
                 raise PatchMappingError(
                     'Could not find referenced repo. '
-                    '(missing repo: {}, repo: {}, patch entry: {})'
-                    .format(patch['repo'], self.name, patch['id']))
+                    '(missing repo: {}, repo: {}, patch entry: {})'.format(patch['repo'], self.name, patch['id'])
+                )
 
             path = os.path.join(other_repo.path, patch['path'])
             cmd = []
 
             if os.path.isfile(path):
                 my_patches.append((path, patch['id']))
-            elif os.path.isdir(path) \
-                    and os.path.isfile(os.path.join(path, 'series')):
+            elif os.path.isdir(path) and os.path.isfile(os.path.join(path, 'series')):
                 with open(os.path.join(path, 'series')) as f:
                     for line in f:
                         if line.startswith('#'):
@@ -380,51 +358,46 @@ class RepoImpl(Repo):
             else:
                 raise PatchFileNotFound(
                     'Could not find patch. '
-                    '(patch path: {}, repo: {}, patch entry: {})'
-                    .format(path, self.name, patch['id']))
+                    '(patch path: {}, repo: {}, patch entry: {})'.format(path, self.name, patch['id'])
+                )
 
-        for (path, patch_id) in my_patches:
+        for path, patch_id in my_patches:
             cmd = self.apply_patches_file_cmd(path)
-            (retc, output) = await run_cmd_async(
-                cmd, cwd=self.path, fail=False)
+            (retc, output) = await run_cmd_async(cmd, cwd=self.path, fail=False)
             if retc:
                 raise PatchApplyError(
                     'Could not apply patch. Please fix repos and '
                     'patches. (patch path: {}, repo: {}, patch '
-                    'entry: {}, vcs output: {})'
-                    .format(path, self.name, patch_id, output))
+                    'entry: {}, vcs output: {})'.format(path, self.name, patch_id, output)
+                )
 
-            logging.info('Patch applied. '
-                         '(patch path: %s, repo: %s, patch entry: %s)',
-                         path, self.name, patch_id)
+            logging.info('Patch applied. ' '(patch path: %s, repo: %s, patch entry: %s)', path, self.name, patch_id)
 
             cmd = self.add_cmd()
-            (retc, output) = await run_cmd_async(
-                cmd, cwd=self.path, fail=False)
+            (retc, output) = await run_cmd_async(cmd, cwd=self.path, fail=False)
             if retc:
                 raise PatchApplyError(
-                    'Could not add patched files. repo: {}, vcs output: {})'
-                    .format(self.name, output))
+                    'Could not add patched files. repo: {}, vcs output: {})'.format(self.name, output)
+                )
 
             cmd = self.commit_cmd()
-            (retc, output) = await run_cmd_async(
-                cmd, cwd=self.path, fail=False)
+            (retc, output) = await run_cmd_async(cmd, cwd=self.path, fail=False)
             if retc:
                 raise PatchApplyError(
-                    'Could not commit patch changes. repo: {}, vcs output: {})'
-                    .format(self.name, output))
+                    'Could not commit patch changes. repo: {}, vcs output: {})'.format(self.name, output)
+                )
 
         return 0
 
 
 class GitRepo(RepoImpl):
     """
-        Provides the git functionality for a Repo.
+    Provides the git functionality for a Repo.
     """
 
     def remove_ref_prefix(self, branch):
         ref_prefix = 'refs/'
-        return branch[branch.startswith(ref_prefix) and len(ref_prefix):]
+        return branch[branch.startswith(ref_prefix) and len(ref_prefix) :]
 
     def add_cmd(self):
         return ['git', 'add', '-A']
@@ -440,8 +413,7 @@ class GitRepo(RepoImpl):
         return cmd
 
     def commit_cmd(self):
-        return ['git', 'commit', '-a', '--author', 'kas <kas@example.com>',
-                '-m', 'msg']
+        return ['git', 'commit', '-a', '--author', 'kas <kas@example.com>', '-m', 'msg']
 
     def contains_refspec_cmd(self):
         branch = self.branch or self.refspec
@@ -453,10 +425,7 @@ class GitRepo(RepoImpl):
         cmd = ['git', 'fetch', '-q']
         branch = self.branch or self.refspec
         if branch and branch.startswith('refs/'):
-            cmd.extend(['origin',
-                        '+' + branch
-                        + ':refs/remotes/origin/'
-                        + self.remove_ref_prefix(branch)])
+            cmd.extend(['origin', '+' + branch + ':refs/remotes/origin/' + self.remove_ref_prefix(branch)])
 
         return cmd
 
@@ -464,16 +433,19 @@ class GitRepo(RepoImpl):
         return ['git', 'status', '-s']
 
     def resolve_branch_cmd(self):
-        return ['git', 'rev-parse', '--verify', '-q',
-                'origin/{branch}'.
-                format(branch=self.remove_ref_prefix(
-                    self.branch or self.refspec))]
+        return [
+            'git',
+            'rev-parse',
+            '--verify',
+            '-q',
+            'origin/{branch}'.format(branch=self.remove_ref_prefix(self.branch or self.refspec)),
+        ]
 
     def checkout_cmd(self, desired_ref, is_branch):
         cmd = ['git', 'checkout', '-q', self.remove_ref_prefix(desired_ref)]
         if is_branch:
             branch = self.remove_ref_prefix(self.branch or self.refspec)
-            branch = branch[branch.startswith('heads/') and len('heads/'):]
+            branch = branch[branch.startswith('heads/') and len('heads/') :]
             cmd.extend(['-B', branch])
         if get_context().force_checkout:
             cmd.append('--force')
@@ -481,9 +453,13 @@ class GitRepo(RepoImpl):
 
     def prepare_patches_cmd(self):
         branch = self.branch or self.refspec
-        return ['git', 'checkout', '-q', '-B',
-                'patched-{refspec}'.
-                format(refspec=self.commit or self.remove_ref_prefix(branch))]
+        return [
+            'git',
+            'checkout',
+            '-q',
+            '-B',
+            'patched-{refspec}'.format(refspec=self.commit or self.remove_ref_prefix(branch)),
+        ]
 
     def apply_patches_file_cmd(self, path):
         return ['git', 'apply', '--whitespace=nowarn', path]
@@ -494,7 +470,7 @@ class GitRepo(RepoImpl):
 
 class MercurialRepo(RepoImpl):
     """
-        Provides the hg functionality for a Repo.
+    Provides the hg functionality for a Repo.
     """
 
     def add_cmd(self):
@@ -519,8 +495,7 @@ class MercurialRepo(RepoImpl):
         return ['hg', 'diff']
 
     def resolve_branch_cmd(self):
-        return ['hg', 'identify', '--id', '-r', self.branch or self.refspec,
-                'default']
+        return ['hg', 'identify', '--id', '-r', self.branch or self.refspec, 'default']
 
     def checkout_cmd(self, desired_ref, is_branch):
         cmd = ['hg', 'checkout', desired_ref]
@@ -530,8 +505,7 @@ class MercurialRepo(RepoImpl):
 
     def prepare_patches_cmd(self):
         refspec = self.commit or self.branch or self.refspec
-        return ['hg', 'branch', '-f',
-                'patched-{refspec}'.format(refspec=refspec)]
+        return ['hg', 'branch', '-f', 'patched-{refspec}'.format(refspec=refspec)]
 
     def apply_patches_file_cmd(self, path):
         return ['hg', 'import', '--no-commit', path]

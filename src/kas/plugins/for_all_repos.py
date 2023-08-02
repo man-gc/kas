@@ -50,13 +50,12 @@
 import logging
 import os
 import subprocess
-from kas.context import create_global_context
+
 from kas.config import Config
-from kas.libcmds import Macro, Command, SetupHome
-from kas.libkas import setup_parser_common_args
-from kas.libkas import setup_parser_preserve_env_arg
-from kas.libkas import run_handle_preserve_env_arg
+from kas.context import create_global_context
 from kas.kasusererror import CommandExecError
+from kas.libcmds import Command, Macro, SetupHome
+from kas.libkas import run_handle_preserve_env_arg, setup_parser_common_args, setup_parser_preserve_env_arg
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
@@ -64,16 +63,13 @@ __copyright__ = 'Copyright (c) Siemens AG, 2017-2018'
 
 class ForAllRepos:
     name = 'for-all-repos'
-    helpmsg = (
-        'Runs a specified command in all checked out repositories.'
-    )
+    helpmsg = 'Runs a specified command in all checked out repositories.'
 
     @classmethod
     def setup_parser(cls, parser):
         setup_parser_common_args(parser)
         setup_parser_preserve_env_arg(parser)
-        parser.add_argument('command',
-                            help='Command to be executed as a string.')
+        parser.add_argument('command', help='Command to be executed as a string.')
 
     def run(self, args):
         ctx = create_global_context(args)
@@ -106,8 +102,7 @@ class ForAllReposCommand(Command):
                 'KAS_REPO_REFSPEC': repo.refspec or '',
             }
             logging.info('%s$ %s', repo.path, self.command)
-            retcode = subprocess.call(self.command, shell=True, cwd=repo.path,
-                                      env=env)
+            retcode = subprocess.call(self.command, shell=True, cwd=repo.path, env=env)
             if retcode != 0:
                 raise CommandExecError(self.command, retcode)
 

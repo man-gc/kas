@@ -5,8 +5,9 @@
 # SPDX-License-Identifier: MIT
 
 import os
-import stat
 import shutil
+import stat
+
 import pytest
 from kas import kas
 from kas.repos import PatchApplyError, PatchFileNotFound, PatchMappingError
@@ -26,9 +27,9 @@ def test_patch(changedir, tmpdir):
 
 def test_patch_update(changedir, tmpdir):
     """
-        Test that patches are applied correctly after switching a repo from
-        a branch to a commit hash and vice-versa with both git and mercurial
-        repositories.
+    Test that patches are applied correctly after switching a repo from
+    a branch to a commit hash and vice-versa with both git and mercurial
+    repositories.
     """
     tdir = str(tmpdir / 'test_patch_update')
     shutil.copytree('tests/test_patch', tdir)
@@ -43,7 +44,7 @@ def test_patch_update(changedir, tmpdir):
 
 def test_invalid_patch(changedir, tmpdir):
     """
-        Test on common errors when applying patches
+    Test on common errors when applying patches
     """
     tdir = str(tmpdir / 'test_patch_invalid')
     shutil.copytree('tests/test_patch', tdir)

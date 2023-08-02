@@ -6,9 +6,11 @@
 # SPDX-License-Identifier: MIT
 
 import os
-import shutil
 import pathlib
 import re
+import shutil
+
+import pytest
 from kas import kas
 
 
@@ -51,14 +53,17 @@ def _test_env_section_export(changedir, tmpdir, bb_env_var, bb_repo):
     script = """#!/bin/sh
     export %s="FOO"
     export PATH="%s/%s/bin:${PATH}"
-    """ % (bb_env_var, str(conf_dir), bb_repo)
+    """ % (
+        bb_env_var,
+        str(conf_dir),
+        bb_repo,
+    )
     init_build_env.write_text(script)
     init_build_env.chmod(0o775)
 
     # Before executing bitbake, first get the bitbake.conf
     kas.kas(['checkout', 'test_env.yml'])
-    shutil.copy(str(conf_dir / bb_repo / 'conf' / 'bitbake.conf'),
-                str(pathlib.Path('build') / 'conf' / 'bitbake.conf'))
+    shutil.copy(str(conf_dir / bb_repo / 'conf' / 'bitbake.conf'), str(pathlib.Path('build') / 'conf' / 'bitbake.conf'))
 
     kas.kas(['shell', '-c', 'env > %s' % env_out, 'test_env.yml'])
     kas.kas(['shell', '-c', 'bitbake -e > %s' % bb_env_out, 'test_env.yml'])
@@ -71,11 +76,8 @@ def _test_env_section_export(changedir, tmpdir, bb_env_var, bb_repo):
             test_env[key] = val.strip()
 
     # Variables with 'None' assigned should not be added to environment
-    try:
+    with pytest.raises(KeyError):
         _ = test_env['TESTVAR_WHITELIST']
-        assert False
-    except KeyError:
-        assert True
 
     assert test_env['TESTVAR_DEFAULT_VAL'] == 'BAR'
     assert 'TESTVAR_WHITELIST' in test_env[bb_env_var]
@@ -97,10 +99,8 @@ def _test_env_section_export(changedir, tmpdir, bb_env_var, bb_repo):
 
 # BB_ENV_EXTRAWHITE is deprecated but may still be used
 def test_env_section_export_bb_extra_white(changedir, tmpdir):
-    _test_env_section_export(changedir, tmpdir, 'BB_ENV_EXTRAWHITE',
-                             'bitbake_old')
+    _test_env_section_export(changedir, tmpdir, 'BB_ENV_EXTRAWHITE', 'bitbake_old')
 
 
 def test_env_section_export_bb_env_passthrough_additions(changedir, tmpdir):
-    _test_env_section_export(changedir, tmpdir, 'BB_ENV_PASSTHROUGH_ADDITIONS',
-                             'bitbake_new')
+    _test_env_section_export(changedir, tmpdir, 'BB_ENV_PASSTHROUGH_ADDITIONS', 'bitbake_new')

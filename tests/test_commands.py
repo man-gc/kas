@@ -5,12 +5,13 @@
 # SPDX-License-Identifier: MIT
 
 import glob
+import json
 import os
 import pathlib
 import shutil
-import json
-import yaml
+
 import pytest
+import yaml
 from kas import kas
 from kas.libkas import TaskExecError
 
@@ -19,16 +20,20 @@ def test_for_all_repos(changedir, tmpdir):
     tdir = str(tmpdir / 'test_commands')
     shutil.copytree('tests/test_commands', tdir)
     os.chdir(tdir)
-    kas.kas(['for-all-repos', 'test.yml',
-             '''if [ -n "${KAS_REPO_URL}" ]; then git rev-parse HEAD \
-                     >> %s/ref_${KAS_REPO_NAME}; fi''' % tdir])
+    kas.kas(
+        [
+            'for-all-repos',
+            'test.yml',
+            '''if [ -n "${KAS_REPO_URL}" ]; then git rev-parse HEAD \
+                     >> %s/ref_${KAS_REPO_NAME}; fi'''
+            % tdir,
+        ]
+    )
 
     with open('ref_kas_1.0', 'r') as f:
-        assert f.readline().strip() \
-            == '907816a5c4094b59a36aec12226e71c461c05b77'
+        assert f.readline().strip() == '907816a5c4094b59a36aec12226e71c461c05b77'
     with open('ref_kas_1.1', 'r') as f:
-        assert f.readline().strip() \
-            == 'e9ca55a239caa1a2098e1d48773a29ea53c6cab2'
+        assert f.readline().strip() == 'e9ca55a239caa1a2098e1d48773a29ea53c6cab2'
 
 
 def test_checkout(changedir, tmpdir):
@@ -137,8 +142,7 @@ def test_lockfile(changedir, tmpdir, capsys):
     # lockfile is considered during import, expect pinned branches
     kas.kas('dump test.yml'.split())
     lockspec = yaml.safe_load(capsys.readouterr().out)
-    assert lockspec['overrides']['repos']['externalrepo']['commit'] \
-        == expected_commit
+    assert lockspec['overrides']['repos']['externalrepo']['commit'] == expected_commit
 
     # insert older commit into lockfile (kas post commit/branch introduction)
     test_commit = '226e92a7f30667326a63fd9812b8cc4a6184e398'
@@ -149,12 +153,10 @@ def test_lockfile(changedir, tmpdir, capsys):
     # check if repo is moved to specified commit
     kas.kas('dump test.yml'.split())
     lockspec = yaml.safe_load(capsys.readouterr().out)
-    assert lockspec['overrides']['repos']['externalrepo']['commit'] \
-        == test_commit
+    assert lockspec['overrides']['repos']['externalrepo']['commit'] == test_commit
 
     # update lockfile, check if repo is pinned to other commit
     kas.kas('dump --lock --inplace --update test.yml'.split())
     with open('test.lock.yml', 'r') as f:
         lockspec = yaml.safe_load(f)
-        assert lockspec['overrides']['repos']['externalrepo']['commit'] \
-            != test_commit
+        assert lockspec['overrides']['repos']['externalrepo']['commit'] != test_commit

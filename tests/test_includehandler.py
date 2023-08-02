@@ -5,13 +5,12 @@
 # SPDX-License-Identifier: MIT
 
 
-import os
-import io
-import textwrap
 import contextlib
+import io
+import os
+import textwrap
 
 import pytest
-
 from kas import includehandler
 
 
@@ -57,12 +56,7 @@ class TestLoadConfig:
 
     def test_err_header_missing(self):
         exception = includehandler.LoadConfigException
-        testvector = [
-            ('', exception),
-            ('a', exception),
-            ('1', exception),
-            ('a:', exception)
-        ]
+        testvector = [('', exception), ('a', exception), ('1', exception), ('a:', exception)]
 
         self.util_exception_content(testvector)
 
@@ -135,17 +129,7 @@ header:
     def test_valid_includes_none(self, monkeypatch):
         header = self.__class__.header
         testvector = [
-            {
-                'fdict': {
-                    'x.yml': header.format('')
-                },
-                'rdict': {
-                },
-                'conf': {
-                },
-                'rmiss': [
-                ]
-            },
+            {'fdict': {'x.yml': header.format('')}, 'rdict': {}, 'conf': {}, 'rmiss': []},
         ]
 
         self.util_include_content(testvector, monkeypatch)
@@ -157,80 +141,56 @@ header:
             {
                 'fdict': {
                     'x.yml': header.format('  includes: ["y.yml"]'),
-                    os.path.abspath('y.yml'): header.format('\nv:')
+                    os.path.abspath('y.yml'): header.format('\nv:'),
                 },
-                'rdict': {
-                },
-                'conf': {
-                    'v': None
-                },
-                'rmiss': [
-                ]
+                'rdict': {},
+                'conf': {'v': None},
+                'rmiss': [],
             },
             # Include one file from another not available repo:
             {
                 'fdict': {
-                    'x.yml': header.format(
-                        '  includes: [{repo: rep, file: y.yml}]'),
+                    'x.yml': header.format('  includes: [{repo: rep, file: y.yml}]'),
                 },
-                'rdict': {
-                },
-                'conf': {
-                },
+                'rdict': {},
+                'conf': {},
                 'rmiss': [
                     'rep',
-                ]
+                ],
             },
             # Include one file from the same repo and one from another
             # not available repo:
             {
                 'fdict': {
-                    'x.yml': header.format('  includes: ["y.yml", '
-                                           '{repo: rep, file: y.yml}]'),
-                    os.path.abspath('y.yml'): header.format('\nv:')
+                    'x.yml': header.format('  includes: ["y.yml", ' '{repo: rep, file: y.yml}]'),
+                    os.path.abspath('y.yml'): header.format('\nv:'),
                 },
-                'rdict': {
-                },
-                'conf': {
-                    'v': None
-                },
+                'rdict': {},
+                'conf': {'v': None},
                 'rmiss': [
                     'rep',
-                ]
+                ],
             },
             # Include one file from another available repo:
             {
                 'fdict': {
-                    'x.yml': header.format(
-                        '  includes: [{repo: rep, file: y.yml}]'),
-                    '/rep/y.yml': header.format('\nv:')
+                    'x.yml': header.format('  includes: [{repo: rep, file: y.yml}]'),
+                    '/rep/y.yml': header.format('\nv:'),
                 },
-                'rdict': {
-                    'rep': '/rep'
-                },
-                'conf': {
-                    'v': None
-                },
-                'rmiss': [
-                ]
+                'rdict': {'rep': '/rep'},
+                'conf': {'v': None},
+                'rmiss': [],
             },
             # Include two files from another repo in sub-directories:
             {
                 'fdict': {
-                    'x.yml': header.format(
-                        '  includes: [{repo: rep, file: dir1/y.yml}]'),
-                    '/rep/dir1/y.yml': header.format(
-                        '  includes: ["dir2/z.yml"]'),
-                    '/rep/dir2/z.yml': header.format('\nv:')
+                    'x.yml': header.format('  includes: [{repo: rep, file: dir1/y.yml}]'),
+                    '/rep/dir1/y.yml': header.format('  includes: ["dir2/z.yml"]'),
+                    '/rep/dir2/z.yml': header.format('\nv:'),
                 },
-                'rdict': {
-                    'rep': '/rep'
-                },
-                'conf': {
-                    'v': None
-                },
-                'rmiss': [
-                ]
+                'rdict': {'rep': '/rep'},
+                'conf': {'v': None},
+                'rmiss': [],
             },
         ]
 
@@ -241,57 +201,55 @@ header:
         testvector = [
             {
                 'fdict': {
-                    'x.yml': header.format('''  includes: ["y.yml"]
-v: x'''),
-                    os.path.abspath('y.yml'): header.format('''
-v: y''')
+                    'x.yml': header.format(
+                        '''  includes: ["y.yml"]
+v: x'''
+                    ),
+                    os.path.abspath('y.yml'): header.format(
+                        '''
+v: y'''
+                    ),
                 },
-                'rdict': {
-                },
-                'conf': {
-                    'v': 'x'
-                },
-                'rmiss': [
-                ]
+                'rdict': {},
+                'conf': {'v': 'x'},
+                'rmiss': [],
             },
             {
                 'fdict': {
-                    'x.yml': header.format('''  includes: ["y.yml"]
-v: {v: x}'''),
-                    os.path.abspath('y.yml'): header.format('''
-v: {v: y}''')
+                    'x.yml': header.format(
+                        '''  includes: ["y.yml"]
+v: {v: x}'''
+                    ),
+                    os.path.abspath('y.yml'): header.format(
+                        '''
+v: {v: y}'''
+                    ),
                 },
-                'rdict': {
-                },
-                'conf': {
-                    'v': {'v': 'x'}
-                },
-                'rmiss': [
-                ]
+                'rdict': {},
+                'conf': {'v': {'v': 'x'}},
+                'rmiss': [],
             },
             {
                 'fdict': {
-                    'x.yml': header.format('''  includes: ["y.yml"]
+                    'x.yml': header.format(
+                        '''  includes: ["y.yml"]
 v1:
 v2: []
 v3:
-  - a: c'''),
-                    os.path.abspath('y.yml'): header.format('''
+  - a: c'''
+                    ),
+                    os.path.abspath('y.yml'): header.format(
+                        '''
 v1: a
 v2: [a]
 v3:
   - a: b
-  - d: c}]''')
+  - d: c}]'''
+                    ),
                 },
-                'rdict': {
-                },
-                'conf': {
-                    'v1': None,
-                    'v2': [],
-                    'v3': [{'a': 'c'}]
-                },
-                'rmiss': [
-                ]
+                'rdict': {},
+                'conf': {'v1': None, 'v2': [], 'v3': [{'a': 'c'}]},
+                'rmiss': [],
             },
         ]
 
@@ -302,35 +260,32 @@ v3:
         testvector = [
             {
                 'fdict': {
-                    'x.yml': header.format('''  includes: ["y.yml"]
+                    'x.yml': header.format(
+                        '''  includes: ["y.yml"]
 v1: x
 v3:
   a: b
   b:
     e:
-  c: d'''),
-                    os.path.abspath('y.yml'): header.format('''
+  c: d'''
+                    ),
+                    os.path.abspath('y.yml'): header.format(
+                        '''
 v2: y
 v3:
   d: e
   b:
     c:
-  e: f''')
+  e: f'''
+                    ),
                 },
-                'rdict': {
-                },
+                'rdict': {},
                 'conf': {
                     'v1': 'x',
                     'v2': 'y',
-                    'v3': {
-                        'a': 'b',
-                        'b': {'c': None, 'e': None},
-                        'c': 'd',
-                        'd': 'e',
-                        'e': 'f'}
+                    'v3': {'a': 'b', 'b': {'c': None, 'e': None}, 'c': 'd', 'd': 'e', 'e': 'f'},
                 },
-                'rmiss': [
-                ]
+                'rmiss': [],
             },
         ]
 
@@ -340,14 +295,20 @@ v3:
         # disable schema validation for this test:
         monkeypatch.setattr(includehandler, 'CONFIGSCHEMA', {})
         header = self.__class__.header
-        data = {'x.yml':
-                header.format('''  includes: ["y.yml", "z.yml"]
-v: {v1: x, v2: x}'''),
-                os.path.abspath('y.yml'):
-                header.format('''  includes: ["z.yml"]
-v: {v2: y, v3: y, v5: y}'''),
-                os.path.abspath('z.yml'): header.format('''
-v: {v3: z, v4: z}''')}
+        data = {
+            'x.yml': header.format(
+                '''  includes: ["y.yml", "z.yml"]
+v: {v1: x, v2: x}'''
+            ),
+            os.path.abspath('y.yml'): header.format(
+                '''  includes: ["z.yml"]
+v: {v2: y, v3: y, v5: y}'''
+            ),
+            os.path.abspath('z.yml'): header.format(
+                '''
+v: {v3: z, v4: z}'''
+            ),
+        }
         with patch_open(includehandler, dictionary=data):
             ginc = includehandler.IncludeHandler(['x.yml'], '.')
             config, _ = ginc.get_config()

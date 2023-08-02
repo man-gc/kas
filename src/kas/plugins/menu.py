@@ -53,29 +53,42 @@
 import logging
 import os
 import pprint
+
 import yaml
-from kconfiglib import Kconfig, Symbol, Choice, KconfigError, \
-    expr_value, TYPE_TO_STR, MENU, COMMENT, STRING, BOOL, INT, HEX, UNKNOWN
-from kas import __version__, __file_version__
-from kas.context import create_global_context
+from kconfiglib import (
+    BOOL,
+    COMMENT,
+    HEX,
+    INT,
+    MENU,
+    STRING,
+    TYPE_TO_STR,
+    UNKNOWN,
+    Choice,
+    Kconfig,
+    KconfigError,
+    Symbol,
+    expr_value,
+)
+
+from kas import __file_version__, __version__
 from kas.config import CONFIG_YAML_FILE
-from kas.repos import Repo
-from kas.includehandler import load_config as load_config_yaml, \
-    SOURCE_DIR_OVERRIDE_KEY, SOURCE_DIR_HOST_OVERRIDE_KEY
-from kas.plugins.build import Build
+from kas.context import create_global_context
+from kas.includehandler import SOURCE_DIR_HOST_OVERRIDE_KEY, SOURCE_DIR_OVERRIDE_KEY
+from kas.includehandler import load_config as load_config_yaml
 from kas.kasusererror import KasUserError
+from kas.plugins.build import Build
+from kas.repos import Repo
 
 try:
-    from snack import SnackScreen, EntryWindow, ButtonChoiceWindow, \
-        ButtonBar, Listbox, GridFormHelp
+    from snack import ButtonBar, ButtonChoiceWindow, EntryWindow, GridFormHelp, Listbox, SnackScreen
+
     newt_available = True
 except ImportError:
     newt_available = False  # will be reported in run()
 
 __license__ = 'MIT'
-__copyright__ = \
-    'Copyright (c) 2011-2019, Ulf Magnusson <ulfalizer@gmail.com>\n' \
-    'Copyright (c) Siemens AG, 2021-2023'
+__copyright__ = 'Copyright (c) 2011-2019, Ulf Magnusson <ulfalizer@gmail.com>\n' 'Copyright (c) Siemens AG, 2021-2023'
 
 SOURCE_DIR_HOST_ENV_KEY = '_KAS_REPO_DIR_HOST'
 
@@ -92,13 +105,13 @@ class KConfigLoadError(KasUserError):
     """
     The KConfig file could not be found or is invalid
     """
+
     pass
 
 
 def check_sym_is_string(sym):
     if sym.type != STRING:
-        raise VariableTypeError('Variable {} must be of string type'
-                                .format(sym.name))
+        raise VariableTypeError('Variable {} must be of string type'.format(sym.name))
 
 
 def str_representer(dumper, data):
@@ -112,19 +125,15 @@ class Args:
 
 class Menu:
     """
-        This class implements the menu plugin for kas.
+    This class implements the menu plugin for kas.
     """
 
     name = 'menu'
-    helpmsg = (
-        'Provides a configuration menu and triggers the build of the choices.'
-    )
+    helpmsg = 'Provides a configuration menu and triggers the build of the choices.'
 
     @classmethod
     def setup_parser(cls, parser):
-        parser.add_argument('kconfig',
-                            help='Kconfig file',
-                            nargs='?', default='Kconfig')
+        parser.add_argument('kconfig', help='Kconfig file', nargs='?', default='Kconfig')
 
     def load_config(self, filename):
         try:
@@ -137,9 +146,7 @@ class Menu:
         for symname in menu_configuration:
             sym = self.kconf.syms.get(symname)
             if not sym:
-                logging.warning(
-                    'Ignoring unknown configuration variable %s in %s',
-                    symname, filename)
+                logging.warning('Ignoring unknown configuration variable %s in %s', symname, filename)
                 continue
             symvalue = menu_configuration[symname]
             if sym.type == BOOL:
@@ -178,9 +185,7 @@ class Menu:
                 elif sym.type == HEX:
                     menu_configuration[symname] = int(symvalue, 16)
                 else:
-                    raise VariableTypeError(
-                        'Configuration variable {} uses unsupported type'
-                        .format(symname))
+                    raise VariableTypeError('Configuration variable {} uses unsupported type'.format(symname))
 
             if symname.startswith('KAS_INCLUDE_'):
                 check_sym_is_string(sym)
@@ -198,27 +203,20 @@ class Menu:
                 kas_vars[symname] = symvalue
 
         config = {
-            'header': {
-                'version': __file_version__,
-                'includes': kas_includes
-            },
+            'header': {'version': __file_version__, 'includes': kas_includes},
             'menu_configuration': menu_configuration,
-            SOURCE_DIR_OVERRIDE_KEY: top_repo_dir
+            SOURCE_DIR_OVERRIDE_KEY: top_repo_dir,
         }
 
         if SOURCE_DIR_HOST_ENV_KEY in os.environ:
-            config[SOURCE_DIR_HOST_OVERRIDE_KEY] = \
-                os.environ[SOURCE_DIR_HOST_ENV_KEY]
+            config[SOURCE_DIR_HOST_OVERRIDE_KEY] = os.environ[SOURCE_DIR_HOST_ENV_KEY]
         if kas_build_system:
             config['build_system'] = kas_build_system
         if len(kas_targets) > 0:
             config['target'] = kas_targets
         if len(kas_vars) > 0:
             config['local_conf_header'] = {
-                '__menu_config_vars': '\n'.join([
-                    '{} = "{}"'.format(key, value)
-                    for key, value in kas_vars.items()
-                ])
+                '__menu_config_vars': '\n'.join(['{} = "{}"'.format(key, value) for key, value in kas_vars.items()])
             }
 
         logging.debug('Menu configuration:\n%s', pprint.pformat(config))
@@ -235,10 +233,7 @@ class Menu:
                 pass
 
             with open(filename, 'w') as config_file:
-                config_file.write(
-                    '#\n'
-                    '# Automatically generated by kas {}\n'
-                    '#\n'.format(__version__))
+                config_file.write('#\n' '# Automatically generated by kas {}\n' '#\n'.format(__version__))
                 yaml.dump(config, config_file)
 
     def dump_kconf_warnings(self):
@@ -248,8 +243,7 @@ class Menu:
 
     def run(self, args):
         if not newt_available:
-            raise MissingModuleError(
-                'Menu plugin requires \'python3-newt\' distribution package.')
+            raise MissingModuleError('Menu plugin requires \'python3-newt\' distribution package.')
 
         ctx = create_global_context(args)
 
@@ -257,7 +251,7 @@ class Menu:
         try:
             self.kconf = Kconfig(kconfig_file, warn_to_stderr=False)
         except (KconfigError, FileNotFoundError) as err:
-            raise KConfigLoadError(str(err))
+            raise KConfigLoadError(str(err)) from err
 
         top_repo_path = Repo.get_root_path(os.path.dirname(kconfig_file))
         config_filename = os.path.join(ctx.kas_work_dir, CONFIG_YAML_FILE)
@@ -287,7 +281,7 @@ class Menu:
             Build().run(build_args)
 
 
-class Menuconfig():
+class Menuconfig:
     def __init__(self, kconf):
         self.kconf = kconf
         self.screen = None
@@ -363,8 +357,7 @@ class Menuconfig():
 
         # {:3} sets the field width to three. Gives nice alignment for empty
         # string values.
-        res = "{:3} {}{}".format(Menuconfig.value_str(sym), indent * " ",
-                                 prompt)
+        res = "{:3} {}{}".format(Menuconfig.value_str(sym), indent * " ", prompt)
 
         # Append a sub-menu arrow if menuconfig and enabled
         if node.is_menuconfig:
@@ -381,10 +374,8 @@ class Menuconfig():
             if string:
                 items.append((string, node))
 
-            if (node.list and node.item != MENU
-                    and (type(node.item) == Choice or not node.is_menuconfig)):
-                items.extend(Menuconfig.menu_node_strings(node.list,
-                                                          indent + 2))
+            if node.list and node.item != MENU and (type(node.item) == Choice or not node.is_menuconfig):
+                items.extend(Menuconfig.menu_node_strings(node.list, indent + 2))
 
             node = node.next
 
@@ -406,14 +397,14 @@ class Menuconfig():
                 ('Save & Build', 'build', 'B'),
                 ('Save & Exit', 'save', 'S'),
                 (' Help ', 'help', 'h'),
-                (' Exit ', 'exit', 'ESC')
+                (' Exit ', 'exit', 'ESC'),
             ]
             buttonbar = ButtonBar(self.screen, buttons)
             listbox = Listbox(height, scroll=scroll, returnExit=1)
             count = 0
             for string, _ in items:
                 listbox.append(string, count)
-                if (selection == count):
+                if selection == count:
                     listbox.setCurrent(count)
                 count = count + 1
 
@@ -442,11 +433,8 @@ class Menuconfig():
                 else:
                     help = 'No help available.'
                 ButtonChoiceWindow(
-                    screen=self.screen,
-                    title="Help on '{}'".format(prompt),
-                    text=help,
-                    width=60,
-                    buttons=['  Ok  '])
+                    screen=self.screen, title="Help on '{}'".format(prompt), text=help, width=60, buttons=['  Ok  ']
+                )
                 continue
 
             show_submenu = False
@@ -464,7 +452,8 @@ class Menuconfig():
                             title=sym.name,
                             text='Enter a %s value:' % TYPE_TO_STR[sym.type],
                             prompts=[('', sym.str_value)],
-                            buttons=[('  Ok  ', 'Ok'), ('Cancel', '', 'ESC')])
+                            buttons=[('  Ok  ', 'Ok'), ('Cancel', '', 'ESC')],
+                        )
                         if action == 'Ok':
                             self.kconf.warnings = []
                             val = values[0]
@@ -472,30 +461,29 @@ class Menuconfig():
                                 val = '0x' + val
                             sym.set_value(val)
                             # only fetching triggers range check - how ugly...
-                            sym.str_value
+                            sym.str_value  # noqa: B018
                             if len(self.kconf.warnings) > 0:
                                 ButtonChoiceWindow(
                                     screen=self.screen,
                                     title="Invalid entry",
                                     text="\n".join(self.kconf.warnings),
                                     width=60,
-                                    buttons=['  Ok  '])
+                                    buttons=['  Ok  '],
+                                )
                                 self.kconf.warnings = []
             elif selected_node.is_menuconfig and type(sym) != Choice:
                 show_submenu = True
 
             if show_submenu:
                 submenu_title, _ = selected_node.prompt
-                action = self.show_menu(submenu_title,
-                                        selected_node.list)
+                action = self.show_menu(submenu_title, selected_node.list)
                 if action != 'exit':
                     return action
 
     def show(self):
         self.screen = SnackScreen()
 
-        action = self.show_menu(self.kconf.mainmenu_text,
-                                self.kconf.top_node.list)
+        action = self.show_menu(self.kconf.mainmenu_text, self.kconf.top_node.list)
 
         self.screen.finish()
         return action

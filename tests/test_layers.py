@@ -6,9 +6,9 @@
 
 import os
 import shutil
-from kas import kas
 
 import pytest
+from kas import kas
 
 LAYERBASE = '${TOPDIR}/..'
 

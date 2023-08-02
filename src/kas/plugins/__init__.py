@@ -12,7 +12,7 @@ PLUGINS = {}
 
 def register_plugins(mod):
     """
-        Register all kas plugins found in a module
+    Register all kas plugins found in a module
     """
     for plugin in getattr(mod, '__KAS_PLUGINS__', []):
         PLUGINS[plugin.name] = plugin
@@ -20,14 +20,9 @@ def register_plugins(mod):
 
 def load():
     """
-        Import all kas plugins
+    Import all kas plugins
     """
-    from . import build
-    from . import for_all_repos
-    from . import checkout
-    from . import shell
-    from . import menu
-    from . import dump
+    from . import build, checkout, dump, for_all_repos, menu, shell
 
     register_plugins(build)
     register_plugins(checkout)
@@ -39,13 +34,13 @@ def load():
 
 def get(name):
     """
-        Lookup a kas plugin class by name
+    Lookup a kas plugin class by name
     """
     return PLUGINS.get(name, None)
 
 
 def all():
     """
-        Get a list of all loaded kas plugin classes
+    Get a list of all loaded kas plugin classes
     """
     return PLUGINS.values()

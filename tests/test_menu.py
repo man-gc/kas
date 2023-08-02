@@ -6,17 +6,16 @@
 
 import os
 import shutil
+
 import pytest
 
 if os.getenv('FORCE_ALL_TESTS'):
     import snack
 else:
-    snack = pytest.importorskip(
-                'snack',
-                reason='\'python3-newt\' distribution package not installed'
-    )
+    snack = pytest.importorskip('snack', reason='\'python3-newt\' distribution package not installed')
 
 from kas import kas
+
 
 @pytest.fixture(autouse=True)
 def patch_kas(monkeypatch):

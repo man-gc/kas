@@ -18,10 +18,7 @@ except (ImportError, LookupError):
     try:
         from ._version import __version__  # noqa: F401
     except ModuleNotFoundError:
-        raise RuntimeError(
-            "kas is not correctly installed. "
-            "Please install it with pip."
-        )
+        raise RuntimeError("kas is not correctly installed. Please install it with pip.") from None
 
 # Please update docs/format-changelog.rst when changing the file version.
 __file_version__ = 14
